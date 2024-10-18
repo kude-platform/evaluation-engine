@@ -1,0 +1,17 @@
+{
+  "frontendFolder": "/Users/timo.buechert/kude-platform/evaluation-engine/./src/main/frontend",
+  "themeFolder": "themes",
+  "themeResourceFolder": "/Users/timo.buechert/kude-platform/evaluation-engine/./src/main/frontend/generated/jar-resources",
+  "staticOutput": "/Users/timo.buechert/kude-platform/evaluation-engine/target/classes/META-INF/VAADIN/webapp/VAADIN/static",
+  "generatedFolder": "generated",
+  "statsOutput": "/Users/timo.buechert/kude-platform/evaluation-engine/target/classes/META-INF/VAADIN/config",
+  "frontendBundleOutput": "/Users/timo.buechert/kude-platform/evaluation-engine/target/classes/META-INF/VAADIN/webapp",
+  "devBundleOutput": "/Users/timo.buechert/kude-platform/evaluation-engine/target/dev-bundle/webapp",
+  "devBundleStatsOutput": "/Users/timo.buechert/kude-platform/evaluation-engine/target/dev-bundle/config",
+  "jarResourcesFolder": "/Users/timo.buechert/kude-platform/evaluation-engine/./src/main/frontend/generated/jar-resources",
+  "themeName": "",
+  "clientServiceWorkerSource": "/Users/timo.buechert/kude-platform/evaluation-engine/target/sw.ts",
+  "pwaEnabled": false,
+  "offlineEnabled": false,
+  "offlinePath": "'offline.html'"
+}

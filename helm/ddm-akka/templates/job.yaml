@@ -1,0 +1,61 @@
+{{-  $serviceName := printf "%s-%s" .Values.name "headless-svc" -}}
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+spec:
+  clusterIP: None
+  selector:
+    job-name: {{ .Values.name }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.name }}
+    kueue.x-k8s.io/queue-name: local-queue
+spec:
+  completions: {{ .Values.replicaCount }}
+  parallelism: {{ .Values.replicaCount }}
+  completionMode: Indexed
+  suspend: false
+  backoffLimit: 0
+  template:
+    spec:
+      subdomain: {{ $serviceName }}
+      restartPolicy: Never
+      containers:
+        - name: 'ddm-akka'
+          image: 'registry.local/akka-tpch-jdk11:0.0.1'
+          ports:
+            - containerPort: 7877
+              name: master-port
+            - containerPort: 7879
+              name: worker-port
+          env:
+            - name: "JOB_NAME"
+              value: {{ .Values.name }}
+            - name: "SVC_NAME"
+              value: {{ $serviceName }}
+            - name: "GIT_URL"
+              value: {{ .Values.gitUrl }}
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: "job-name"
+                    operator: In
+                    values:
+                      - {{ .Values.name }}
+              topologyKey: "kubernetes.io/hostname"
