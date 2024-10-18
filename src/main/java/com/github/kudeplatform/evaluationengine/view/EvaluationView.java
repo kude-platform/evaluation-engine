@@ -1,14 +1,13 @@
 package com.github.kudeplatform.evaluationengine.view;
 
-import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.FileEvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
-import com.google.gson.Gson;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -19,19 +18,25 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
+import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
+import com.vaadin.flow.data.validator.RegexpValidator;
+import com.vaadin.flow.data.validator.StringLengthValidator;
 import com.vaadin.flow.router.Route;
 import org.apache.commons.io.IOUtils;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,29 +46,28 @@ import java.util.UUID;
 @Route(value = "/app/evaluation", layout = AppView.class)
 public class EvaluationView extends VerticalLayout implements NotifiableComponent {
 
-    @Autowired
-    private Gson gson;
+    private final EvaluationResultRepository evaluationResultRepository;
+
+    private final EvaluationService evaluationService;
+
+    private final List<NotifiableComponent> activeViewComponents;
+
+    private final Span uploadSuccessSpan = new Span();
+
+    private final TextField gitRepositoryUrl = new TextField("GIT Repository URL");
+
+    private final Grid<EvaluationResultEntity> grid;
+
+    private final List<String> javascriptTimeouts = new ArrayList<>();
 
     @Autowired
-    private EvaluationResultRepository evaluationResultRepository;
+    public EvaluationView(final EvaluationResultRepository evaluationResultRepository,
+                          final EvaluationService evaluationService,
+                          final List<NotifiableComponent> activeViewComponents) {
+        this.evaluationResultRepository = evaluationResultRepository;
+        this.evaluationService = evaluationService;
+        this.activeViewComponents = activeViewComponents;
 
-    @Autowired
-    private EvaluationService evaluationService;
-
-    @Autowired
-    private List<NotifiableComponent> activeViewComponents;
-
-    private TextArea evaluationArea;
-
-    private Span uploadSuccessSpan = new Span();
-
-    private TextField gitRepositoryUrl = new TextField("GIT Repository URL");
-
-    private Button submitButton = new Button("Submit");
-
-    private Grid<EvaluationResultEntity> grid;
-
-    public EvaluationView() {
         final H2 title = new H2("Evaluation");
         this.add(title);
 
@@ -75,27 +79,47 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         verticalLayout.add(explanationSpan);
 
         final HorizontalLayout horizontalLayout = new HorizontalLayout();
+
         horizontalLayout.add(this.createUploadComponent());
 
         horizontalLayout.add(gitRepositoryUrl);
+        gitRepositoryUrl.setRequiredIndicatorVisible(true);
+        gitRepositoryUrl.setErrorMessage("This field is required");
 
-        submitButton.setDisableOnClick(true);
-        submitButton.addClickListener(event -> {
-            final UUID uuid = UUID.randomUUID();
-            evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid));
-            final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
-                            "with the following ID: " + uuid + ".",
-                    5000, Notification.Position.TOP_CENTER);
-            notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-        });
+        final Binder<GitEvaluationTask> gitBinder = new Binder<>(GitEvaluationTask.class);
+        gitBinder.forField(gitRepositoryUrl)
+                .withValidator(new StringLengthValidator("GIT Repository URL must contain at least 1 character", 1, null))
+                .withValidator(new RegexpValidator("GIT Repository URL must be in a URL format", "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"))
+                .bind(GitEvaluationTask::repositoryUrl, GitEvaluationTask::setRepositoryUrl);
 
+        final Button submitButton = createSubmitButton(evaluationService, gitBinder);
         horizontalLayout.add(submitButton);
-
 
         verticalLayout.add(horizontalLayout);
 
         verticalLayout.add(uploadSuccessSpan);
-        verticalLayout.add(this.createEvaluationTable());
+
+        this.grid = this.createEvaluationTable();
+        verticalLayout.add(this.grid);
+    }
+
+    @NotNull
+    private Button createSubmitButton(EvaluationService evaluationService, Binder<GitEvaluationTask> gitBinder) {
+        final Button submitButton = new Button("Submit");
+        submitButton.setDisableOnClick(true);
+        submitButton.addClickListener(event -> {
+            if (gitBinder.validate().isOk()) {
+                final UUID uuid = UUID.randomUUID();
+                evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid));
+
+                final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
+                                "with the following ID: " + uuid + ".",
+                        5000, Notification.Position.TOP_CENTER);
+                notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
+            }
+
+        });
+        return submitButton;
     }
 
     @Override
@@ -112,6 +136,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         synchronized (this.activeViewComponents) {
             this.activeViewComponents.remove(this);
         }
+        this.javascriptTimeouts.forEach(s -> UI.getCurrent().getPage().executeJs("clearInterval(" + s + ");console.error('cleared " + s + "');"));
     }
 
     private Upload createUploadComponent() {
@@ -160,8 +185,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         return upload;
     }
 
-    private Grid createEvaluationTable() {
-        this.grid = new Grid<>(EvaluationResultEntity.class, false);
+    private Grid<EvaluationResultEntity> createEvaluationTable() {
+        final Grid<EvaluationResultEntity> grid = new Grid<>(EvaluationResultEntity.class, false);
         grid.addColumn(new ComponentRenderer<>(item -> {
             Anchor anchor = new Anchor();
             anchor.setText(item.getTaskId().toString());
@@ -169,11 +194,36 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             return anchor;
         })).setHeader("Task ID");
 
+        grid.addColumn(evaluationResultEntity -> {
+            final int positionInQueue = this.evaluationService.getPositionInQueue(evaluationResultEntity.getTaskId());
+            return positionInQueue < 0 ? "" : positionInQueue;
+        }).setHeader("Position In Queue");
+
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            if (item.getStatus().isPending()) {
+                return null;
+            }
+            Anchor anchor = new Anchor();
+            anchor.setText("Performance Graphs");
+            anchor.setHref("/app/graphs/" + item.getTaskId().toString());
+            return anchor;
+        })).setHeader("Performance Graphs");
+
         grid.addColumn(evaluationResultEntity -> evaluationResultEntity.getStatus().toString()).setHeader("Status");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
-            if (EvaluationStatus.CANCELLED.equals(item.getStatus()) || EvaluationStatus.FAILED.equals(item.getStatus())
-                    || EvaluationStatus.SUCCEEDED.equals(item.getStatus())) {
+            if (!item.getStatus().isRunning()) {
+                return null;
+            }
+            final Span span = new Span();
+            span.setText(String.valueOf(ChronoUnit.SECONDS.between(item.getTimestamp(), ZonedDateTime.now())));
+            span.getElement().executeJs("return setInterval(() => {this.innerText = parseInt(this.innerText) + 1}, 1000);")
+                    .then(String.class, this.javascriptTimeouts::add);
+            return span;
+        })).setHeader("Runtime (s)");
+
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            if (item.getStatus().isFinal()) {
                 return null;
             }
 
@@ -187,8 +237,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         })).setHeader("Action");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
-            if (EvaluationStatus.CANCELLED.equals(item.getStatus()) || EvaluationStatus.FAILED.equals(item.getStatus())
-                    || EvaluationStatus.SUCCEEDED.equals(item.getStatus())) {
+            if (item.getStatus().isFinal()) {
                 Anchor anchor = new Anchor();
                 anchor.setText("Logs Download");
                 anchor.setHref("/api/files/logs-" + item.getTaskId().toString() + ".zip");
@@ -209,8 +258,6 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     }
 
     private void update() {
-        getUI().ifPresent(ui -> ui.access(() -> {
-            this.grid.setItems(evaluationResultRepository.findAll());
-        }));
+        getUI().ifPresent(ui -> ui.access(() -> this.grid.setItems(evaluationResultRepository.findAll())));
     }
 }

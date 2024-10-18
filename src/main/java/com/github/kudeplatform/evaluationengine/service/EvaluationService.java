@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,10 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -58,6 +62,8 @@ public class EvaluationService {
 
     final KubernetesService kubernetesService;
 
+    final SettingsService settingsService;
+
     final BlockingQueue<EvaluationTask> evaluationTaskQueue;
 
     final List<NotifiableComponent> activeViewComponents;
@@ -73,14 +79,26 @@ public class EvaluationService {
         taskExecutor.execute(new EvaluationRunnable());
     }
 
+    public int getPositionInQueue(final UUID taskId) {
+        int positionInQueue = 1;
+        for (final EvaluationTask taskInQueue : evaluationTaskQueue) {
+            if (taskInQueue.taskId().equals(taskId)) {
+                return positionInQueue;
+            }
+            positionInQueue++;
+        }
+
+        return -1;
+    }
+
     public void submitEvaluationTask(final EvaluationTask evaluationTask) {
         final EvaluationResultEntity evaluationResultEntity = new EvaluationResultEntity();
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
         evaluationResultEntity.setStatus(EvaluationStatus.PENDING);
 
         evaluationResultRepository.save(evaluationResultEntity);
-        notifyView();
         evaluationTaskQueue.add(evaluationTask);
+        notifyView();
     }
 
     public void cancelEvaluationTask(UUID taskId) {
@@ -110,9 +128,9 @@ public class EvaluationService {
                     evaluationLock.lock();
                     final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
                     evaluationResultEntity.setStatus(EvaluationStatus.DEPLOYING);
+                    evaluationResultEntity.setTimestamp(ZonedDateTime.now());
                     evaluationResultRepository.save(evaluationResultEntity);
                     notifyView();
-
                     deploy(task);
 
                     final CompletableFuture<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback);
@@ -120,9 +138,13 @@ public class EvaluationService {
 
                     Result result;
                     try {
-                        result = evaluationFuture.join();
+                        result = evaluationFuture.get(settingsService.getTimeoutInSeconds(), TimeUnit.SECONDS);
                     } catch (CancellationException exception) {
                         result = new SingleEvaluationResult(task, EvaluationStatus.CANCELLED, List.of());
+                    } catch (TimeoutException exception) {
+                        result = new SingleEvaluationResult(task, EvaluationStatus.TIMEOUT, List.of());
+                    } catch (ExecutionException e) {
+                        result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                     }
 
                     try {

@@ -7,7 +7,7 @@ import java.util.UUID;
  */
 public class EvaluationTask {
 
-    private final UUID taskId;
+    private UUID taskId;
 
     public EvaluationTask(UUID taskId) {
         this.taskId = taskId;
@@ -15,5 +15,9 @@ public class EvaluationTask {
 
     public UUID taskId() {
         return taskId;
+    }
+
+    public void setTaskId(UUID taskId) {
+        this.taskId = taskId;
     }
 }

@@ -7,7 +7,7 @@ import java.util.UUID;
  */
 public class GitEvaluationTask extends EvaluationTask {
 
-    private final String repositoryUrl;
+    private String repositoryUrl;
 
     public GitEvaluationTask(String repositoryUrl, UUID taskId) {
         super(taskId);
@@ -16,5 +16,9 @@ public class GitEvaluationTask extends EvaluationTask {
 
     public String repositoryUrl() {
         return repositoryUrl;
+    }
+    
+    public void setRepositoryUrl(String repositoryUrl) {
+        this.repositoryUrl = repositoryUrl;
     }
 }

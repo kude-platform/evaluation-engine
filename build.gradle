@@ -11,6 +11,10 @@ java {
     sourceCompatibility = '17'
 }
 
+springBoot {
+    buildInfo()
+}
+
 repositories {
     mavenCentral()
     maven {
@@ -32,6 +36,8 @@ dependencies {
     implementation 'org.mapstruct:mapstruct:1.6.0'
 
     implementation 'com.marcnuri.helm-java:helm-java:0.0.11'
+    implementation 'com.marcnuri.helm-java:darwin-amd64:0.0.11'
+    implementation 'com.marcnuri.helm-java:linux-arm64:0.0.11'
 
 
     runtimeOnly 'com.h2database:h2'
@@ -49,7 +55,7 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom "com.vaadin:vaadin-bom:24.4.0.beta5"
+        mavenBom "com.vaadin:vaadin-bom:24.4.10"
     }
 }
 
