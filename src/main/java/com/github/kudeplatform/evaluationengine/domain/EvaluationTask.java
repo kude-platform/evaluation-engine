@@ -9,8 +9,11 @@ public class EvaluationTask {
 
     private UUID taskId;
 
-    public EvaluationTask(UUID taskId) {
+    private final String additionalCommandLineOptions;
+
+    public EvaluationTask(UUID taskId, String additionalCommandLineOptions) {
         this.taskId = taskId;
+        this.additionalCommandLineOptions = additionalCommandLineOptions;
     }
 
     public UUID taskId() {
@@ -20,4 +23,9 @@ public class EvaluationTask {
     public void setTaskId(UUID taskId) {
         this.taskId = taskId;
     }
+
+    public String additionalCommandLineOptions() {
+        return additionalCommandLineOptions;
+    }
+
 }

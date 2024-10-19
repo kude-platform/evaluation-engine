@@ -193,9 +193,9 @@ public class EvaluationService {
 
     private void deploy(EvaluationTask task) {
         if (task instanceof FileEvaluationTask) {
-            kubernetesService.deployTask(task.taskId().toString(), 2);
+            kubernetesService.deployTask(task.taskId().toString(), task.additionalCommandLineOptions(), 2);
         } else if (task instanceof GitEvaluationTask gitEvaluationTask) {
-            kubernetesService.deployTask(task.taskId().toString(), gitEvaluationTask.repositoryUrl(), 2);
+            kubernetesService.deployTask(task.taskId().toString(), gitEvaluationTask.repositoryUrl(), task.additionalCommandLineOptions(), 2);
         }
     }
 

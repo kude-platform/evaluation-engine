@@ -7,8 +7,8 @@ import java.util.UUID;
  */
 public class FileEvaluationTask extends EvaluationTask {
 
-    public FileEvaluationTask(UUID taskId) {
-        super(taskId);
+    public FileEvaluationTask(UUID taskId, String additionalCommandLineOptions) {
+        super(taskId, additionalCommandLineOptions);
     }
 
 }

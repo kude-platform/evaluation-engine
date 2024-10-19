@@ -9,8 +9,8 @@ public class GitEvaluationTask extends EvaluationTask {
 
     private String repositoryUrl;
 
-    public GitEvaluationTask(String repositoryUrl, UUID taskId) {
-        super(taskId);
+    public GitEvaluationTask(String repositoryUrl, UUID taskId, String additionalCommandLineOptions) {
+        super(taskId, additionalCommandLineOptions);
         this.repositoryUrl = repositoryUrl;
     }
 

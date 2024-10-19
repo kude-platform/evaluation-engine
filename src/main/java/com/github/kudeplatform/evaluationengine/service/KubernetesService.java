@@ -122,22 +122,24 @@ public class KubernetesService implements OrchestrationService {
         throw new OrchestrationServiceException("Unexpected result type");
     }
 
-    public void deployTask(String taskId, int numberOfReplicas) {
+    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
+                .set("additionalCommandLineOptions", additionalCommandLineOptions)
                 .call();
     }
 
-    public void deployTask(String taskId, String gitUrl, int numberOfReplicas) {
+    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
                 .set("gitUrl", gitUrl)
+                .set("additionalCommandLineOptions", additionalCommandLineOptions)
                 .call();
     }
 

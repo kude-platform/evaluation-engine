@@ -4,6 +4,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ $serviceName }}
+  namespace: {{ .Values.namespace }}
 spec:
   clusterIP: None
   selector:
@@ -29,7 +30,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.0.1'
+          image: 'registry.local/akka-tpch-jdk11:0.0.6'
           ports:
             - containerPort: 7877
               name: master-port
@@ -42,12 +43,22 @@ spec:
               value: {{ $serviceName }}
             - name: "GIT_URL"
               value: {{ .Values.gitUrl }}
+            - name: "ADDITIONAL_MASTER_ARGS"
+              value: {{ .Values.additionalCommandLineOptions }}
+            - name: "ADDITIONAL_WORKER_ARGS"
+              value: {{ .Values.additionalCommandLineOptions }}
+            - name: "OFFLINE_MODE"
+              value: "false"
+            - name: "ADDITIONAL_MAVEN_ARGS"
+              value: "-DskipTests"
+            - name: "JVM_ARGS"
+              value: "-Xms512m -Xmx1024m"
           resources:
             requests:
               memory: "256Mi"
               cpu: "250m"
             limits:
-              memory: "256Mi"
+              memory: "1024Mi"
               cpu: "1000m"
       affinity:
         podAntiAffinity:

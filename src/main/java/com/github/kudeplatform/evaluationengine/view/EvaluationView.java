@@ -56,6 +56,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final TextField gitRepositoryUrl = new TextField("GIT Repository URL");
 
+    private final TextField additionalCommandLineOptions = new TextField("Additional Command Line Options");
+
     private final Grid<EvaluationResultEntity> grid;
 
     private final List<String> javascriptTimeouts = new ArrayList<>();
@@ -85,6 +87,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         horizontalLayout.add(gitRepositoryUrl);
         gitRepositoryUrl.setRequiredIndicatorVisible(true);
         gitRepositoryUrl.setErrorMessage("This field is required");
+        horizontalLayout.add(additionalCommandLineOptions);
 
         final Binder<GitEvaluationTask> gitBinder = new Binder<>(GitEvaluationTask.class);
         gitBinder.forField(gitRepositoryUrl)
@@ -94,6 +97,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         final Button submitButton = createSubmitButton(evaluationService, gitBinder);
         horizontalLayout.add(submitButton);
+        horizontalLayout.setAlignItems(Alignment.BASELINE);
 
         verticalLayout.add(horizontalLayout);
 
@@ -106,11 +110,12 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     @NotNull
     private Button createSubmitButton(EvaluationService evaluationService, Binder<GitEvaluationTask> gitBinder) {
         final Button submitButton = new Button("Submit");
-        submitButton.setDisableOnClick(true);
+        //submitButton.setDisableOnClick(true);
         submitButton.addClickListener(event -> {
             if (gitBinder.validate().isOk()) {
                 final UUID uuid = UUID.randomUUID();
-                evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid));
+                evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
+                        additionalCommandLineOptions.getValue()));
 
                 final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
                                 "with the following ID: " + uuid + ".",
@@ -173,7 +178,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             this.uploadSuccessSpan.removeAll();
             this.uploadSuccessSpan.add(anchor);
 
-            this.evaluationService.submitEvaluationTask(new FileEvaluationTask(uuid));
+            this.evaluationService.submitEvaluationTask(new FileEvaluationTask(uuid, ""));
         });
 
         upload.addFileRejectedListener(event -> {

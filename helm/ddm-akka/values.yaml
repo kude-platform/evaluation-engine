@@ -1,4 +1,5 @@
 replicaCount: 2
 name: ddm-akka
 gitUrl: i-will-be-overwritten
+additionalCommandLineOptions: i-will-be-overwritten
 namespace: evaluation
