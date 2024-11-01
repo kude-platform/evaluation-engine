@@ -25,9 +25,13 @@ public class SettingsView extends VerticalLayout {
 
     final TextField timeoutInSeconds;
 
+    final TextField replicationFactor;
+
     final Button saveButton;
 
     String timeoutInSecondsValue = "";
+
+    String replicationFactorValue = "";
 
     @Autowired
     public SettingsView(final SettingsService settingsService) {
@@ -36,10 +40,12 @@ public class SettingsView extends VerticalLayout {
         this.add(title);
 
         this.timeoutInSeconds = new TextField("Timeout in seconds");
+        this.replicationFactor = new TextField("Replication factor");
         this.saveButton = new Button("Save");
 
         final FormLayout formLayout = new FormLayout();
         formLayout.add(timeoutInSeconds);
+        formLayout.add(replicationFactor);
         formLayout.add(saveButton);
         this.add(formLayout);
     }
@@ -53,12 +59,26 @@ public class SettingsView extends VerticalLayout {
                 .bind(this::getTimeoutInSecondsValue, this::setTimeoutInSecondsValue);
 
         this.timeoutInSeconds.setValue(String.valueOf(settingsService.getTimeoutInSeconds()));
+
+        final Binder<String> replicationFactorBinder = new Binder<>(String.class);
+        replicationFactorBinder.forField(replicationFactor)
+                .withValidator(new RegexpValidator("Only numbers are allowed", "^[0-9]*$"))
+                .bind(this::getReplicationFactorValue, this::setReplicationFactorValue);
+
+        this.replicationFactor.setValue(String.valueOf(settingsService.getReplicationFactor()));
+
         this.saveButton.addClickListener(event -> {
-            if (timeoutInSecondsBinder.validate().isOk()) {
+            if (timeoutInSecondsBinder.validate().isOk()
+                    && replicationFactorBinder.validate().isOk()) {
                 timeoutInSecondsBinder.writeBeanIfValid(timeoutInSecondsValue);
+                replicationFactorBinder.writeBeanIfValid(replicationFactorValue);
+
                 settingsService.setTimeoutInSeconds(timeoutInSecondsValue);
+                settingsService.setReplicationFactor(replicationFactorValue);
+
                 Notification.show("Saved settings", 5000, Notification.Position.TOP_CENTER);
             }
+
         });
     }
 
@@ -68,6 +88,14 @@ public class SettingsView extends VerticalLayout {
 
     private String getTimeoutInSecondsValue(String bean) {
         return this.timeoutInSecondsValue;
+    }
+
+    private void setReplicationFactorValue(String bean, String fieldValue) {
+        this.replicationFactorValue = fieldValue;
+    }
+
+    private String getReplicationFactorValue(String bean) {
+        return this.replicationFactorValue;
     }
 
 }

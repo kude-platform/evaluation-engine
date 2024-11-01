@@ -26,6 +26,8 @@ public class EvaluationResultEntity {
     private ZonedDateTime timestamp;
 
     private EvaluationStatus status;
+    
+    private boolean logsAvailable;
 
     @Lob
     private String message;

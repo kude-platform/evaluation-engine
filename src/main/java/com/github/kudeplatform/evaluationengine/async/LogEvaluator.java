@@ -7,7 +7,6 @@ import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
 import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +16,6 @@ import java.io.InputStreamReader;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -43,16 +41,16 @@ public class LogEvaluator extends SimpleEvaluator {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(logInputStream));
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    String value;
-                    try {
-                        value = gson.fromJson(line, Map.class).get("message").toString();
-                    } catch (JsonSyntaxException e) {
-                        value = line;
-                    }
+//                    String value;
+//                    try {
+//                        value = gson.fromJson(line, Map.class).get("message").toString();
+//                    } catch (JsonSyntaxException e) {
+//                        value = line;
+//                    }
                     final EvaluationEvent event = new EvaluationEvent(evaluationTask.taskId(),
                             ZonedDateTime.now(),
                             EvaluationStatus.RUNNING,
-                            value);
+                            line);
                     results.add(event);
                     updateCallback.accept(event);
                 }

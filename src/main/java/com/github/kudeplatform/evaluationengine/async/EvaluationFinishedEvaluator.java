@@ -5,6 +5,7 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
+import com.github.kudeplatform.evaluationengine.service.KubernetesJobStatus;
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,8 +36,9 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                                               final Consumer<EvaluationEvent> updateCallback) {
         return CompletableFuture.supplyAsync(() -> {
             final List<EvaluationEvent> results = new ArrayList<>();
+            KubernetesJobStatus jobStatus;
             try {
-                kubernetesService.waitForJobCompletion(evaluationTask.taskId().toString());
+                jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId().toString());
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
                         EvaluationStatus.FAILED, e.getMessage());
@@ -47,14 +49,27 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                         results);
             }
 
+            final EvaluationStatus evaluationStatus = mapToEvaluationStatus(jobStatus);
+
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    EvaluationStatus.SUCCEEDED, "Evaluation finished.");
+                    evaluationStatus, "Evaluation finished.");
             results.add(finalResult);
             updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,
-                    EvaluationStatus.SUCCEEDED,
+                    evaluationStatus,
                     results);
         });
+    }
+
+    private EvaluationStatus mapToEvaluationStatus(final KubernetesJobStatus jobStatus) {
+        return switch (jobStatus) {
+            case PENDING -> EvaluationStatus.PENDING;
+            case RUNNING -> EvaluationStatus.RUNNING;
+            case SUCCEEDED -> EvaluationStatus.SUCCEEDED;
+            case FAILED, UNKNOWN -> EvaluationStatus.FAILED;
+            case CANCELLED -> EvaluationStatus.CANCELLED;
+            case TIMEOUT -> EvaluationStatus.TIMEOUT;
+        };
     }
 
 }

@@ -13,6 +13,7 @@ import io.kubernetes.client.openapi.apis.CustomObjectsApi;
 import io.kubernetes.client.util.Config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.IOException;
@@ -26,11 +27,13 @@ import java.util.concurrent.BlockingQueue;
  */
 @Configuration
 @EnableScheduling
+@EnableRetry
 public class ApplicationConfig {
 
     @Bean
     public ApiClient kubernetesClient() throws IOException {
         final ApiClient client = Config.defaultClient();
+        client.setConnectTimeout(100_000);
         io.kubernetes.client.openapi.Configuration.setDefaultApiClient(client);
         return client;
     }

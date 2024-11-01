@@ -24,13 +24,19 @@ spec:
   completionMode: Indexed
   suspend: false
   backoffLimit: 0
+  ttlSecondsAfterFinished: 1000
+  #activeDeadlineSeconds causes pods to be deleted after the specified time
+  #activeDeadlineSeconds: {{ .Values.timeoutInSeconds }}
   template:
     spec:
       subdomain: {{ $serviceName }}
       restartPolicy: Never
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.0.6'
+          image: 'registry.local/akka-tpch-jdk11:0.0.13'
+          #image: 'registry.local/akka-random-logs:0.0.3'
           ports:
             - containerPort: 7877
               name: master-port
@@ -44,22 +50,28 @@ spec:
             - name: "GIT_URL"
               value: {{ .Values.gitUrl }}
             - name: "ADDITIONAL_MASTER_ARGS"
-              value: {{ .Values.additionalCommandLineOptions }}
+              value: "{{ .Values.additionalCommandLineOptions }} -w 0"
             - name: "ADDITIONAL_WORKER_ARGS"
-              value: {{ .Values.additionalCommandLineOptions }}
+              value: "{{ .Values.additionalCommandLineOptions }} -w 1"
             - name: "OFFLINE_MODE"
               value: "false"
             - name: "ADDITIONAL_MAVEN_ARGS"
               value: "-DskipTests"
+            - name: "UNZIP_DATA"
+              value: "true"
             - name: "JVM_ARGS"
               value: "-Xms512m -Xmx1024m"
+            - name: "POD_IP"
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "250m"
+              memory: "2048Mi"
+              cpu: "2000m"
             limits:
-              memory: "1024Mi"
-              cpu: "1000m"
+              memory: "2048Mi"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

@@ -242,12 +242,14 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         })).setHeader("Action");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
-            if (item.getStatus().isFinal()) {
+            if (item.getStatus().isFinal() && item.isLogsAvailable()) {
                 Anchor anchor = new Anchor();
                 anchor.setText("Logs Download");
                 anchor.setHref("/api/files/logs-" + item.getTaskId().toString() + ".zip");
                 anchor.getElement().setAttribute("download", true);
                 return anchor;
+            } else if (item.getStatus().isFinal() && !item.isLogsAvailable()) {
+                return new Span("Logs not available");
             }
 
             return null;

@@ -15,14 +15,20 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.util.Watch;
 import okhttp3.Call;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,35 +59,67 @@ public class KubernetesService implements OrchestrationService {
                 .forEach(release -> Helm.uninstall(release.getName()).call());
     }
 
-    public List<InputStream> getLogs(String taskId) throws ApiException {
-        final PodLogs logs = new PodLogs();
-        final List<V1Pod> pods = coreV1Api
+    public List<V1Pod> getEvaluationPods(String taskId) throws ApiException {
+        return getPods(String.format("ddm-akka-%s", taskId));
+    }
+
+    public V1Pod getLogCollectorPod(final String nodeName) throws ApiException {
+        return getPods("log-collector").stream().filter(v1Pod -> v1Pod.getSpec().getNodeName().equals(nodeName)).findFirst().orElse(null);
+    }
+
+    public List<V1Pod> getPods(String name) throws ApiException {
+        return coreV1Api
                 .listNamespacedPod("evaluation")
                 .execute()
                 .getItems()
-                .stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith(String.format("ddm-akka-%s", taskId)))
+                .stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith(name))
                 .toList();
+    }
 
-        return pods.stream().map(v1Pod -> {
+    public HashMap<String, List<LogFile>> getLogs(String taskId) throws OrchestrationServiceException, ApiException {
+        final List<V1Pod> pods = getEvaluationPods(taskId);
+
+        final HashMap<String, List<LogFile>> logs = new HashMap<>();
+        for (final V1Pod v1Pod : pods) {
             try {
-                final Call call =
-                        coreV1Api.readNamespacedPodLog(
-                                        v1Pod.getMetadata().getName(),
-                                        v1Pod.getMetadata().getNamespace())
-                                .container(v1Pod.getSpec().getContainers().get(0).getName())
-                                .follow(false)
-                                .pretty("false")
-                                .previous(false)
-                                .sinceSeconds(null)
-                                .tailLines(null)
-                                .timestamps(false)
-                                .buildCall(null);
+                final String podName = v1Pod.getMetadata().getName();
+                final String nodeNameOfPod = v1Pod.getSpec().getNodeName();
+                final V1Pod logCollectorPod = getLogCollectorPod(nodeNameOfPod);
+                final String hostIP = logCollectorPod.getStatus().getHostIP();
 
-                return call.execute().body().byteStream();
-            } catch (ApiException | IOException e) {
-                throw new RuntimeException(e);
+                String xmlListOfFiles = RestClient.create().get()
+                        .uri("http://" + hostIP + ":31179/pods/evaluation_" + podName + "_" + v1Pod.getMetadata().getUid() + "/ddm-akka/")
+                        .retrieve()
+                        .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (request, response) -> {
+                            throw new RuntimeException(String.format("Failed to get logs %s", response));
+                        }).body(String.class);
+
+                //xmlListOfFiles looks like this: <pre><a href="0.log">0.log</a><a href="1.log">1.log</a></pre>
+                Elements logFiles = Jsoup.parse(xmlListOfFiles).body().getElementsByTag("pre").get(0).getElementsByTag("a");
+
+                final List<LogFile> logFileList = new ArrayList<>();
+
+                for (int i = 0; i < logFiles.size(); i++) {
+                    Element logFile = logFiles.get(i);
+                    String logFileName = logFile.attr("href");
+
+                    byte[] logBytes = RestClient.create().get()
+                            .uri("http://" + hostIP + ":31179/pods/evaluation_" + podName + "_" + v1Pod.getMetadata().getUid() + "/ddm-akka/" + logFileName)
+                            .retrieve()
+                            .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (request, response) -> {
+                                throw new RuntimeException(String.format("Failed to get logs %s", response));
+                            }).body(byte[].class);
+
+                    logFileList.add(new LogFile(logFileName, logBytes));
+
+                }
+
+                logs.put(podName, logFileList);
+            } catch (ApiException e) {
+                throw new OrchestrationServiceException(e.getMessage());
             }
-        }).toList();
+        }
+        return logs;
     }
 
     public InputStream getLogInputStream(String taskId, String replicaId) throws ApiException, IOException, OrchestrationServiceException {
@@ -122,17 +160,19 @@ public class KubernetesService implements OrchestrationService {
         throw new OrchestrationServiceException("Unexpected result type");
     }
 
-    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas) {
+    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
                 .set("additionalCommandLineOptions", additionalCommandLineOptions)
+                .set("replicaCount", numberOfReplicas)
+                .set("timeoutInSeconds", timeoutInSeconds)
                 .call();
     }
 
-    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas) {
+    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
@@ -140,6 +180,8 @@ public class KubernetesService implements OrchestrationService {
                 .set("name", name)
                 .set("gitUrl", gitUrl)
                 .set("additionalCommandLineOptions", additionalCommandLineOptions)
+                .set("replicaCount", numberOfReplicas)
+                .set("timeoutInSeconds", timeoutInSeconds)
                 .call();
     }
 
@@ -148,15 +190,16 @@ public class KubernetesService implements OrchestrationService {
         Helm.uninstall(name).call();
     }
 
-    public void waitForJobCompletion(String taskId) throws ApiException {
+    public KubernetesJobStatus waitForJobCompletion(String taskId) throws ApiException {
         final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
                 .listNamespacedJob("evaluation")
                 .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId));
 
         final V1JobList initialJobList = jobRequest.execute();
 
-        if (isJobFinished(initialJobList.getItems().get(0))) {
-            return;
+        final KubernetesJobStatus kubernetesJobStatus = evaluateJobStatus(initialJobList.getItems().get(0));
+        if (kubernetesJobStatus.isFinal()) {
+            return kubernetesJobStatus;
         }
 
         final Call jobCall = jobRequest.watch(true).buildCall(null);
@@ -166,20 +209,33 @@ public class KubernetesService implements OrchestrationService {
         try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
 
             for (Watch.Response<V1Job> item : watch) {
-                if (isJobFinished(item.object)) {
-                    break;
+                final KubernetesJobStatus status = evaluateJobStatus(item.object);
+                if (status.isFinal()) {
+                    return status;
                 }
             }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        return KubernetesJobStatus.UNKNOWN;
     }
 
-    private boolean isJobFinished(V1Job v1Job) {
-        final boolean isJobFailed = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getFailed).orElse(0) > 0;
-        final boolean isJobSucceeded = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getSucceeded).orElse(0) > 0;
+    private KubernetesJobStatus evaluateJobStatus(final V1Job v1Job) {
+        final int running = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getActive).orElse(0);
 
-        return isJobFailed || isJobSucceeded;
+        if (Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getFailed).orElse(0) > 0) {
+            return KubernetesJobStatus.FAILED;
+        } else if (running == 0 && Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getSucceeded).orElse(0) > 0) {
+            return KubernetesJobStatus.SUCCEEDED;
+        } else if (Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getActive).orElse(0) > 0) {
+            return KubernetesJobStatus.RUNNING;
+        } else {
+            return KubernetesJobStatus.UNKNOWN;
+        }
+    }
+
+    public record LogFile(String name, byte[] content) {
     }
 }
