@@ -169,6 +169,7 @@ public class KubernetesService implements OrchestrationService {
                 .set("additionalCommandLineOptions", additionalCommandLineOptions)
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
+                .set("evaluationId", taskId)
                 .call();
     }
 
@@ -182,6 +183,7 @@ public class KubernetesService implements OrchestrationService {
                 .set("additionalCommandLineOptions", additionalCommandLineOptions)
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
+                .set("evaluationId", taskId)
                 .call();
     }
 

@@ -2,6 +2,7 @@ package com.github.kudeplatform.evaluationengine.view;
 
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
+import com.github.kudeplatform.evaluationengine.service.HintsService;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -12,7 +13,6 @@ import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.Route;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.UUID;
 
@@ -20,10 +20,13 @@ import java.util.UUID;
  * @author timo.buechert
  */
 @Route(value = "/app/job", layout = AppView.class)
-public class JobView extends VerticalLayout implements HasUrlParameter<String> {
+public class JobView extends VerticalLayout implements HasUrlParameter<String>, NotifiableComponent {
 
     @Autowired
     private EvaluationEventRepository evaluationEventRepository;
+
+    @Autowired
+    private HintsService hintsService;
 
     private final Span jobNameSpan = new Span();
 
@@ -53,16 +56,15 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String> {
 
     private void addEvaluationTable() {
         this.grid = new Grid<>(EvaluationEventEntity.class, false);
-        grid.addColumn(EvaluationEventEntity::getTaskId).setHeader("Task ID");
+        grid.addColumn(EvaluationEventEntity::getIndex).setHeader("Instance Index");
         grid.addColumn(evaluationResultEntity -> evaluationResultEntity.getTimestamp().toString()).setHeader("Timestamp");
-        grid.addColumn(EvaluationEventEntity::getMessage).setHeader("Message");
-        grid.addColumn(evaluationResultEntity -> evaluationResultEntity.getStatus().toString()).setHeader("Status");
+        grid.addColumn(EvaluationEventEntity::getCategory).setHeader("Category");
+        grid.addColumn(evaluationEventEntity -> hintsService.getHintForCategory(evaluationEventEntity.getCategory())).setHeader("Hint");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         this.add(grid);
     }
 
-    @Scheduled(fixedRate = 5000)
     public void update() {
         getUI().ifPresent(ui -> ui.access(() -> {
             this.grid.setItems(this.evaluationEventRepository.findByTaskId(UUID.fromString(this.jobName)));
@@ -70,4 +72,8 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String> {
     }
 
 
+    @Override
+    public void dataChanged() {
+        this.update();
+    }
 }

@@ -6,6 +6,7 @@ import java.util.UUID;
 /**
  * @author timo.buechert
  */
-public record EvaluationEvent(UUID taskId, ZonedDateTime timestamp, EvaluationStatus status, String message) {
+public record EvaluationEvent(UUID taskId, ZonedDateTime timestamp, EvaluationStatus status, String message,
+                              String index, String category) {
 
 }

@@ -28,6 +28,9 @@ spec:
   #activeDeadlineSeconds causes pods to be deleted after the specified time
   #activeDeadlineSeconds: {{ .Values.timeoutInSeconds }}
   template:
+    metadata:
+      labels:
+        evaluation-id: {{ .Values.evaluationId }}
     spec:
       subdomain: {{ $serviceName }}
       restartPolicy: Never
@@ -68,10 +71,12 @@ spec:
                   fieldPath: status.podIP
           resources:
             requests:
-              memory: "2048Mi"
+              #memory: "2048Mi"
+              memory: "512Mi"
               cpu: "2000m"
             limits:
-              memory: "2048Mi"
+              #memory: "2048Mi"
+              memory: "512Mi"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

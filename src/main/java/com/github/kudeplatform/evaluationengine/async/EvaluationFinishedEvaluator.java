@@ -41,7 +41,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                 jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId().toString());
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        EvaluationStatus.FAILED, e.getMessage());
+                        EvaluationStatus.FAILED, e.getMessage(), "", "");
                 results.add(finalErrorResult);
                 updateCallback.accept(finalErrorResult);
                 return new SingleEvaluationResult(evaluationTask,
@@ -52,7 +52,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             final EvaluationStatus evaluationStatus = mapToEvaluationStatus(jobStatus);
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    evaluationStatus, "Evaluation finished.");
+                    evaluationStatus, "Evaluation finished.", "", "");
             results.add(finalResult);
             updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,

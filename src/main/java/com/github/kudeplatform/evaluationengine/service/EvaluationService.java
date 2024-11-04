@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.service;
 
+import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
@@ -10,6 +11,7 @@ import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationResultMapper;
+import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
@@ -71,6 +73,34 @@ public class EvaluationService {
     public void init() {
         this.cancelAllEvaluationTasks();
         taskExecutor.execute(new EvaluationRunnable());
+    }
+
+    public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
+        for (final String error : ingestedEvent.getErrors()) {
+            final UUID uuid;
+            try {
+                uuid = UUID.fromString(ingestedEvent.getEvaluationId());
+            } catch (Exception e) {
+                log.error("Failed to parse UUID from evaluationId {}", ingestedEvent.getEvaluationId(), e);
+                continue;
+            }
+
+            final List<EvaluationEventEntity> byTaskIdAndCategoryAndIndex =
+                    evaluationEventRepository.findByTaskIdAndCategoryAndIndex(uuid, ingestedEvent.getIndex(), error);
+
+            if (!byTaskIdAndCategoryAndIndex.isEmpty()) {
+                byTaskIdAndCategoryAndIndex.get(0).setTimestamp(ZonedDateTime.now());
+            } else {
+                final EvaluationEvent evaluationEvent = new EvaluationEvent(uuid,
+                        ZonedDateTime.now(),
+                        EvaluationStatus.RUNNING,
+                        "", ingestedEvent.getIndex(),
+                        error);
+
+                evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
+            }
+        }
+        this.notifyView();
     }
 
     public int getPositionInQueue(final UUID taskId) {

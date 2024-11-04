@@ -49,7 +49,7 @@ public class JobActiveEvaluator extends SimpleEvaluator {
                     final EvaluationEvent event = new EvaluationEvent(evaluationTask.taskId(),
                             ZonedDateTime.now(),
                             EvaluationStatus.RUNNING,
-                            "Job is not active yet. Current status: " + jobStatus.getConditions());
+                            "Job is not active yet. Current status: " + jobStatus.getConditions(), "", "");
                     results.add(event);
                     updateCallback.accept(event);
 
@@ -57,7 +57,7 @@ public class JobActiveEvaluator extends SimpleEvaluator {
                 }
             } catch (ApiException | OrchestrationServiceException | InterruptedException e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        EvaluationStatus.FAILED, e.getMessage());
+                        EvaluationStatus.FAILED, e.getMessage(), "", "");
                 results.add(finalErrorResult);
                 updateCallback.accept(finalErrorResult);
                 return new SingleEvaluationResult(evaluationTask,
@@ -66,7 +66,7 @@ public class JobActiveEvaluator extends SimpleEvaluator {
             }
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    EvaluationStatus.SUCCEEDED, "Evaluation finished. Job is now active.");
+                    EvaluationStatus.SUCCEEDED, "Evaluation finished. Job is now active.", "", "");
             results.add(finalResult);
             updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,

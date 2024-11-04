@@ -11,5 +11,9 @@ import java.util.UUID;
 public interface EvaluationEventRepository extends JpaRepository<EvaluationEventEntity, String> {
 
     List<EvaluationEventEntity> findByTaskId(UUID taskid);
+
+    List<EvaluationEventEntity> findByTaskIdAndCategory(UUID taskid, String category);
+
+    List<EvaluationEventEntity> findByTaskIdAndCategoryAndIndex(UUID taskid, String category, String index);
     
 }

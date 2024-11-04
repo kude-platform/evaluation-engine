@@ -29,9 +29,13 @@ public class EvaluationEventEntity {
 
     private UUID taskId;
 
+    private String index;
+
     private EvaluationStatus status;
 
     @Lob
     private String message;
 
+    private String category;
+    
 }

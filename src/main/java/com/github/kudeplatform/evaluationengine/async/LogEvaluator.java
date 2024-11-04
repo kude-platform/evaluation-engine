@@ -50,13 +50,13 @@ public class LogEvaluator extends SimpleEvaluator {
                     final EvaluationEvent event = new EvaluationEvent(evaluationTask.taskId(),
                             ZonedDateTime.now(),
                             EvaluationStatus.RUNNING,
-                            line);
+                            line, "", "");
                     results.add(event);
                     updateCallback.accept(event);
                 }
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        EvaluationStatus.FAILED, e.getMessage());
+                        EvaluationStatus.FAILED, e.getMessage(), "", "");
                 results.add(finalErrorResult);
                 updateCallback.accept(finalErrorResult);
                 return new SingleEvaluationResult(evaluationTask,
@@ -65,7 +65,7 @@ public class LogEvaluator extends SimpleEvaluator {
             }
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    EvaluationStatus.SUCCEEDED, "Evaluation finished.");
+                    EvaluationStatus.SUCCEEDED, "Evaluation finished.", "", "");
             results.add(finalResult);
             updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,
