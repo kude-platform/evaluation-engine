@@ -1,26 +1,24 @@
 package com.github.kudeplatform.evaluationengine.domain;
 
-import java.util.UUID;
-
 /**
  * @author timo.buechert
  */
 public class EvaluationTask {
 
-    private UUID taskId;
+    private String taskId;
 
     private final String additionalCommandLineOptions;
 
-    public EvaluationTask(UUID taskId, String additionalCommandLineOptions) {
+    public EvaluationTask(String taskId, String additionalCommandLineOptions) {
         this.taskId = taskId;
         this.additionalCommandLineOptions = additionalCommandLineOptions;
     }
 
-    public UUID taskId() {
+    public String taskId() {
         return taskId;
     }
 
-    public void setTaskId(UUID taskId) {
+    public void setTaskId(String taskId) {
         this.taskId = taskId;
     }
 

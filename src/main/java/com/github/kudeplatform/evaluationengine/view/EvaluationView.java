@@ -113,7 +113,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         //submitButton.setDisableOnClick(true);
         submitButton.addClickListener(event -> {
             if (gitBinder.validate().isOk()) {
-                final UUID uuid = UUID.randomUUID();
+                final String uuid = UUID.randomUUID().toString();
                 evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
                         additionalCommandLineOptions.getValue()));
 
@@ -151,7 +151,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         upload.addSucceededListener(event -> {
             final String fileName = event.getFileName();
             final InputStream in = buffer.getInputStream(fileName);
-            final UUID uuid = UUID.randomUUID();
+            final String uuid = UUID.randomUUID().toString();
 
             final File tempFile;
             try {
@@ -245,15 +245,29 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (item.getStatus().isFinal() && item.isLogsAvailable()) {
                 Anchor anchor = new Anchor();
                 anchor.setText("Logs Download");
-                anchor.setHref("/api/files/logs-" + item.getTaskId().toString() + ".zip");
+                anchor.setHref("/api/files/logs-" + item.getTaskId() + ".zip");
                 anchor.getElement().setAttribute("download", true);
                 return anchor;
-            } else if (item.getStatus().isFinal() && !item.isLogsAvailable()) {
+            } else if (item.getStatus().isFinal()) {
                 return new Span("Logs not available");
             }
 
             return null;
         })).setHeader("Logs");
+
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            if (item.getStatus().isFinal() && item.isResultsAvailable()) {
+                Anchor anchor = new Anchor();
+                anchor.setText("Results Download");
+                anchor.setHref("/api/files/results-" + item.getTaskId() + ".txt");
+                anchor.getElement().setAttribute("download", true);
+                return anchor;
+            } else if (item.getStatus().isFinal()) {
+                return new Span("Results not available");
+            }
+
+            return null;
+        })).setHeader("Results");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         return grid;

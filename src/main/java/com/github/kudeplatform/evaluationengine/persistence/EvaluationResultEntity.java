@@ -9,7 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.ZonedDateTime;
-import java.util.UUID;
 
 /**
  * @author timo.buechert
@@ -21,13 +20,15 @@ import java.util.UUID;
 public class EvaluationResultEntity {
 
     @Id
-    private UUID taskId;
+    private String taskId;
 
     private ZonedDateTime timestamp;
 
     private EvaluationStatus status;
     
     private boolean logsAvailable;
+
+    private boolean resultsAvailable;
 
     @Lob
     private String message;

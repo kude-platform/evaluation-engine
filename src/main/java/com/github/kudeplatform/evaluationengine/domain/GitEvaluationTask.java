@@ -1,7 +1,5 @@
 package com.github.kudeplatform.evaluationengine.domain;
 
-import java.util.UUID;
-
 /**
  * @author timo.buechert
  */
@@ -9,7 +7,7 @@ public class GitEvaluationTask extends EvaluationTask {
 
     private String repositoryUrl;
 
-    public GitEvaluationTask(String repositoryUrl, UUID taskId, String additionalCommandLineOptions) {
+    public GitEvaluationTask(String repositoryUrl, String taskId, String additionalCommandLineOptions) {
         super(taskId, additionalCommandLineOptions);
         this.repositoryUrl = repositoryUrl;
     }

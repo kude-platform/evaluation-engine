@@ -14,8 +14,6 @@ import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.Route;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.UUID;
-
 /**
  * @author timo.buechert
  */
@@ -67,7 +65,7 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String>, 
 
     public void update() {
         getUI().ifPresent(ui -> ui.access(() -> {
-            this.grid.setItems(this.evaluationEventRepository.findByTaskId(UUID.fromString(this.jobName)));
+            this.grid.setItems(this.evaluationEventRepository.findByTaskId(this.jobName));
         }));
     }
 

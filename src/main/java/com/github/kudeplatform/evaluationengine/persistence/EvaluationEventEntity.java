@@ -10,7 +10,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.ZonedDateTime;
-import java.util.UUID;
 
 /**
  * @author timo.buechert
@@ -27,7 +26,7 @@ public class EvaluationEventEntity {
 
     private ZonedDateTime timestamp;
 
-    private UUID taskId;
+    private String taskId;
 
     private String index;
 

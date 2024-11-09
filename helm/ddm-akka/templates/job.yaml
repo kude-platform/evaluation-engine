@@ -38,8 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.0.13'
-          #image: 'registry.local/akka-random-logs:0.0.3'
+          image: 'registry.local/akka-tpch-jdk11:0.0.16'
           ports:
             - containerPort: 7877
               name: master-port
@@ -48,6 +47,8 @@ spec:
           env:
             - name: "JOB_NAME"
               value: {{ .Values.name }}
+            - name: "EVALUATION_ID"
+              value: {{ .Values.evaluationId }}
             - name: "SVC_NAME"
               value: {{ $serviceName }}
             - name: "GIT_URL"
@@ -64,6 +65,8 @@ spec:
               value: "true"
             - name: "JVM_ARGS"
               value: "-Xms512m -Xmx1024m"
+            - name: "RESULTS_ENDPOINT"
+              value: "http://192.168.178.25:8080/results"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:
@@ -75,8 +78,8 @@ spec:
               memory: "512Mi"
               cpu: "2000m"
             limits:
-              #memory: "2048Mi"
-              memory: "512Mi"
+              memory: "2048Mi"
+              #memory: "512Mi"
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

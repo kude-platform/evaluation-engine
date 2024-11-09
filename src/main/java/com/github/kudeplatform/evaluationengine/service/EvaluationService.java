@@ -26,7 +26,6 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -66,7 +65,7 @@ public class EvaluationService {
 
     final ReentrantLock evaluationLock = new ReentrantLock();
 
-    final Map<UUID, Future<Result>> evaluationFutures = new HashMap<>();
+    final Map<String, Future<Result>> evaluationFutures = new HashMap<String, Future<Result>>();
 
 
     @PostConstruct
@@ -77,21 +76,13 @@ public class EvaluationService {
 
     public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         for (final String error : ingestedEvent.getErrors()) {
-            final UUID uuid;
-            try {
-                uuid = UUID.fromString(ingestedEvent.getEvaluationId());
-            } catch (Exception e) {
-                log.error("Failed to parse UUID from evaluationId {}", ingestedEvent.getEvaluationId(), e);
-                continue;
-            }
-
             final List<EvaluationEventEntity> byTaskIdAndCategoryAndIndex =
-                    evaluationEventRepository.findByTaskIdAndCategoryAndIndex(uuid, ingestedEvent.getIndex(), error);
+                    evaluationEventRepository.findByTaskIdAndCategoryAndIndex(ingestedEvent.getEvaluationId(), ingestedEvent.getIndex(), error);
 
             if (!byTaskIdAndCategoryAndIndex.isEmpty()) {
                 byTaskIdAndCategoryAndIndex.get(0).setTimestamp(ZonedDateTime.now());
             } else {
-                final EvaluationEvent evaluationEvent = new EvaluationEvent(uuid,
+                final EvaluationEvent evaluationEvent = new EvaluationEvent(ingestedEvent.getEvaluationId(),
                         ZonedDateTime.now(),
                         EvaluationStatus.RUNNING,
                         "", ingestedEvent.getIndex(),
@@ -103,7 +94,7 @@ public class EvaluationService {
         this.notifyView();
     }
 
-    public int getPositionInQueue(final UUID taskId) {
+    public int getPositionInQueue(final String taskId) {
         int positionInQueue = 1;
         for (final EvaluationTask taskInQueue : evaluationTaskQueue) {
             if (taskInQueue.taskId().equals(taskId)) {
@@ -125,7 +116,7 @@ public class EvaluationService {
         notifyView();
     }
 
-    public void cancelEvaluationTask(UUID taskId) {
+    public void cancelEvaluationTask(String taskId) {
         evaluationTaskQueue.removeIf(task -> task.taskId().equals(taskId));
 
         if (evaluationFutures.containsKey(taskId)) {
@@ -149,29 +140,34 @@ public class EvaluationService {
             try {
                 while (true) {
                     final EvaluationTask task = evaluationTaskQueue.take();
-                    evaluationLock.lock();
-                    final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
-                    evaluationResultEntity.setStatus(EvaluationStatus.DEPLOYING);
-                    evaluationResultEntity.setTimestamp(ZonedDateTime.now());
-                    evaluationResultRepository.save(evaluationResultEntity);
-                    notifyView();
-                    deploy(task); //TODO: error handling
 
-                    final CompletableFuture<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback);
-                    evaluationFutures.put(task.taskId(), evaluationFuture);
-
-                    Result result;
                     try {
-                        result = evaluationFuture.get(settingsService.getTimeoutInSeconds(), TimeUnit.SECONDS);
-                    } catch (CancellationException exception) {
-                        result = new SingleEvaluationResult(task, EvaluationStatus.CANCELLED, List.of());
-                    } catch (TimeoutException exception) {
-                        result = new SingleEvaluationResult(task, EvaluationStatus.TIMEOUT, List.of());
-                    } catch (ExecutionException e) {
-                        result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
-                    }
-                    boolean logsAvailable = true;
-                    logsAvailable = false; //skip logs for now
+                        evaluationLock.lock();
+                        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
+                        evaluationResultEntity.setStatus(EvaluationStatus.DEPLOYING);
+                        evaluationResultEntity.setTimestamp(ZonedDateTime.now());
+                        evaluationResultRepository.save(evaluationResultEntity);
+                        notifyView();
+                        deploy(task); //TODO: error handling
+
+                        final CompletableFuture<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback);
+                        evaluationFutures.put(task.taskId(), evaluationFuture);
+
+                        Result result;
+                        try {
+                            result = evaluationFuture.get(settingsService.getTimeoutInSeconds(), TimeUnit.SECONDS);
+                        } catch (CancellationException exception) {
+                            log.info("Evaluation cancelled for task {}", task.taskId());
+                            result = new SingleEvaluationResult(task, EvaluationStatus.CANCELLED, List.of());
+                        } catch (TimeoutException exception) {
+                            log.info("Evaluation timed out for task {}", task.taskId());
+                            result = new SingleEvaluationResult(task, EvaluationStatus.TIMEOUT, List.of());
+                        } catch (ExecutionException e) {
+                            log.error("Evaluation failed", e.getCause());
+                            result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
+                        }
+                        boolean logsAvailable = true;
+                        logsAvailable = false; //skip logs for now
 //                    try {
 //                        HashMap<String, List<KubernetesService.LogFile>> logs = kubernetesService.getLogs(task.taskId().toString());
 //                        final String fileName = "logs-" + task.taskId().toString();
@@ -198,17 +194,29 @@ public class EvaluationService {
 //                        logsAvailable = false; //TODO: handle exception
 //                    }
 
-                    //kubernetesService.deleteTask(task.taskId().toString());
+                        //kubernetesService.deleteTask(task.taskId().toString());
 
-                    evaluationFutures.remove(task.taskId());
-                    final EvaluationResultEntity resultEntity =
-                            evaluationResultRepository.findById(task.taskId()).orElseThrow();
-                    resultEntity.setStatus(result.getEvaluationStatus());
-                    resultEntity.setLogsAvailable(logsAvailable);
-                    evaluationResultRepository.save(resultEntity);
-                    notifyView();
+                        evaluationFutures.remove(task.taskId());
+                        final EvaluationResultEntity resultEntity =
+                                evaluationResultRepository.findById(task.taskId()).orElseThrow();
+                        resultEntity.setStatus(result.getEvaluationStatus());
+                        resultEntity.setLogsAvailable(logsAvailable);
+                        evaluationResultRepository.save(resultEntity);
 
-                    evaluationLock.unlock();
+                    } catch (Exception e) {
+                        log.error("Evaluation failed", e); // TODO: better error handling
+
+                        Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
+                        evaluationFutures.remove(task.taskId());
+                        final EvaluationResultEntity resultEntity =
+                                evaluationResultRepository.findById(task.taskId()).orElseThrow();
+                        resultEntity.setStatus(result.getEvaluationStatus());
+                        evaluationResultRepository.save(resultEntity);
+                    } finally {
+                        evaluationLock.unlock();
+                        notifyView();
+                    }
+
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
