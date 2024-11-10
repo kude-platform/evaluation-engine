@@ -143,12 +143,11 @@ public class EvaluationService {
 
                     try {
                         evaluationLock.lock();
-                        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
-                        evaluationResultEntity.setStatus(EvaluationStatus.DEPLOYING);
-                        evaluationResultEntity.setTimestamp(ZonedDateTime.now());
-                        evaluationResultRepository.save(evaluationResultEntity);
-                        notifyView();
-                        deploy(task); //TODO: error handling
+                        updateTaskStatus(task, EvaluationStatus.DEPLOYING);
+                        deploy(task);
+
+                        kubernetesService.waitForJobRunning(task.taskId(), settingsService.getReplicationFactor());
+                        updateTaskStatus(task, EvaluationStatus.RUNNING);
 
                         final CompletableFuture<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback);
                         evaluationFutures.put(task.taskId(), evaluationFuture);
@@ -166,41 +165,11 @@ public class EvaluationService {
                             log.error("Evaluation failed", e.getCause());
                             result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         }
-                        boolean logsAvailable = true;
-                        logsAvailable = false; //skip logs for now
-//                    try {
-//                        HashMap<String, List<KubernetesService.LogFile>> logs = kubernetesService.getLogs(task.taskId().toString());
-//                        final String fileName = "logs-" + task.taskId().toString();
-//                        final File zipFile = new File(System.getProperty("java.io.tmpdir") + fileName + ".zip");
-//
-//                        try (FileOutputStream fileOut = new FileOutputStream(zipFile);
-//                             ZipOutputStream zipFileOut = new ZipOutputStream(fileOut)) {
-//
-//                            for (String podname : logs.keySet()) {
-//                                final List<KubernetesService.LogFile> logFilesOfPod = logs.get(podname);
-//                                for (final KubernetesService.LogFile logFile : logFilesOfPod) {
-//                                    zipFileOut.putNextEntry(new ZipEntry(podname + logFile.name()));
-//                                    IOUtils.copy(new ByteArrayInputStream(logFile.content()), zipFileOut);
-//                                    zipFileOut.closeEntry();
-//                                }
-//                            }
-//                            zipFileOut.finish();
-//                        } catch (IOException e) {
-//                            throw new RuntimeException(e);
-//                        }
-//
-//                    } catch (ApiException | OrchestrationServiceException | RuntimeException e) {
-//                        log.error("Failed to get logs for task {}", task.taskId(), e);
-//                        logsAvailable = false; //TODO: handle exception
-//                    }
-
-                        //kubernetesService.deleteTask(task.taskId().toString());
 
                         evaluationFutures.remove(task.taskId());
                         final EvaluationResultEntity resultEntity =
                                 evaluationResultRepository.findById(task.taskId()).orElseThrow();
                         resultEntity.setStatus(result.getEvaluationStatus());
-                        resultEntity.setLogsAvailable(logsAvailable);
                         evaluationResultRepository.save(resultEntity);
 
                     } catch (Exception e) {
@@ -214,6 +183,7 @@ public class EvaluationService {
                         evaluationResultRepository.save(resultEntity);
                     } finally {
                         evaluationLock.unlock();
+                        kubernetesService.deleteTask(task.taskId());
                         notifyView();
                     }
 
@@ -227,6 +197,14 @@ public class EvaluationService {
             }
         }
 
+        private void updateTaskStatus(final EvaluationTask task, final EvaluationStatus evaluationStatus) {
+            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
+            evaluationResultEntity.setStatus(evaluationStatus);
+            evaluationResultEntity.setTimestamp(ZonedDateTime.now());
+            evaluationResultRepository.save(evaluationResultEntity);
+            notifyView();
+        }
+
         public void evaluationEventCallback(final EvaluationEvent result) {
             evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
         }
@@ -234,10 +212,10 @@ public class EvaluationService {
 
     private void deploy(EvaluationTask task) {
         if (task instanceof FileEvaluationTask) {
-            kubernetesService.deployTask(task.taskId().toString(), task.additionalCommandLineOptions(),
+            kubernetesService.deployTask(task.taskId(), task.additionalCommandLineOptions(),
                     settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds());
         } else if (task instanceof GitEvaluationTask gitEvaluationTask) {
-            kubernetesService.deployTask(task.taskId().toString(), gitEvaluationTask.repositoryUrl(),
+            kubernetesService.deployTask(task.taskId(), gitEvaluationTask.repositoryUrl(),
                     task.additionalCommandLineOptions(), settingsService.getReplicationFactor(),
                     settingsService.getTimeoutInSeconds());
         }

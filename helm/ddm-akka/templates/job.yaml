@@ -38,7 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.0.16'
+          image: 'registry.local/akka-tpch-jdk11:0.1.1'
           ports:
             - containerPort: 7877
               name: master-port
@@ -66,7 +66,9 @@ spec:
             - name: "JVM_ARGS"
               value: "-Xms512m -Xmx1024m"
             - name: "RESULTS_ENDPOINT"
-              value: "http://192.168.178.25:8080/results"
+              value: "http://192.168.178.25:8080/api/fileIngestion/results"
+            - name: "LOGS_ENDPOINT"
+              value: "http://192.168.178.25:8080/api/fileIngestion/logs"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:

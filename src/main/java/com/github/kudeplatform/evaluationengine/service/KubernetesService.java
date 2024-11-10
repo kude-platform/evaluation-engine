@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * @author timo.buechert
@@ -192,15 +193,23 @@ public class KubernetesService implements OrchestrationService {
         Helm.uninstall(name).call();
     }
 
-    public KubernetesJobStatus waitForJobCompletion(String taskId) throws ApiException {
+    public KubernetesJobStatus waitForJobRunning(final String taskId, final int replicas) throws ApiException {
+        return waitForJobStatus(taskId, replicas, KubernetesJobStatus::isRunning);
+    }
+
+    public KubernetesJobStatus waitForJobCompletion(final String taskId, final int replicas) throws ApiException {
+        return waitForJobStatus(taskId, replicas, KubernetesJobStatus::isFinal);
+    }
+
+    public KubernetesJobStatus waitForJobStatus(final String taskId, final int replicas, final Function<KubernetesJobStatus, Boolean> jobStatusEvaluator) throws ApiException {
         final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
                 .listNamespacedJob("evaluation")
                 .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId));
 
         final V1JobList initialJobList = jobRequest.execute();
 
-        final KubernetesJobStatus kubernetesJobStatus = evaluateJobStatus(initialJobList.getItems().get(0));
-        if (kubernetesJobStatus.isFinal()) {
+        final KubernetesJobStatus kubernetesJobStatus = evaluateJobStatus(initialJobList.getItems().get(0), replicas);
+        if (jobStatusEvaluator.apply(kubernetesJobStatus)) {
             return kubernetesJobStatus;
         }
 
@@ -211,8 +220,8 @@ public class KubernetesService implements OrchestrationService {
         try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
 
             for (Watch.Response<V1Job> item : watch) {
-                final KubernetesJobStatus status = evaluateJobStatus(item.object);
-                if (status.isFinal()) {
+                final KubernetesJobStatus status = evaluateJobStatus(item.object, replicas);
+                if (jobStatusEvaluator.apply(status)) {
                     return status;
                 }
             }
@@ -224,15 +233,19 @@ public class KubernetesService implements OrchestrationService {
         return KubernetesJobStatus.UNKNOWN;
     }
 
-    private KubernetesJobStatus evaluateJobStatus(final V1Job v1Job) {
+    private KubernetesJobStatus evaluateJobStatus(final V1Job v1Job, final int replicas) {
         final int running = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getActive).orElse(0);
+        final int failed = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getFailed).orElse(0);
+        final int succeeded = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getSucceeded).orElse(0);
 
-        if (Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getFailed).orElse(0) > 0) {
+        if (failed > 0) {
             return KubernetesJobStatus.FAILED;
-        } else if (running == 0 && Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getSucceeded).orElse(0) > 0) {
+        } else if (running == 0 && succeeded == replicas) {
             return KubernetesJobStatus.SUCCEEDED;
-        } else if (Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getActive).orElse(0) > 0) {
+        } else if (running == replicas) {
             return KubernetesJobStatus.RUNNING;
+        } else if (running < replicas) {
+            return KubernetesJobStatus.PENDING;
         } else {
             return KubernetesJobStatus.UNKNOWN;
         }

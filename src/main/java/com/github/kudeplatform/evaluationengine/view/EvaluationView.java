@@ -172,7 +172,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                     5000,
                     Notification.Position.MIDDLE);
             notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-            final Anchor anchor = new Anchor("/api/files/" + tempFile.getName(), "Download link for the .jar to " +
+            final Anchor anchor = new Anchor("/api/files/download/single/" + tempFile.getName(), "Download link for the .jar to " +
                     "validate.");
             anchor.setRouterIgnore(true);
             this.uploadSuccessSpan.removeAll();
@@ -245,7 +245,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (item.getStatus().isFinal() && item.isLogsAvailable()) {
                 Anchor anchor = new Anchor();
                 anchor.setText("Logs Download");
-                anchor.setHref("/api/files/logs-" + item.getTaskId() + ".zip");
+                anchor.setHref("/api/files/download/pattern/logs-" + item.getTaskId());
                 anchor.getElement().setAttribute("download", true);
                 return anchor;
             } else if (item.getStatus().isFinal()) {
@@ -259,7 +259,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (item.getStatus().isFinal() && item.isResultsAvailable()) {
                 Anchor anchor = new Anchor();
                 anchor.setText("Results Download");
-                anchor.setHref("/api/files/results-" + item.getTaskId() + ".txt");
+                anchor.setHref("/api/files/download/single/results-" + item.getTaskId() + ".txt");
                 anchor.getElement().setAttribute("download", true);
                 return anchor;
             } else if (item.getStatus().isFinal()) {

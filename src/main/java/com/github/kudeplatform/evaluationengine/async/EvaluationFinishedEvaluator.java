@@ -7,6 +7,7 @@ import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.service.KubernetesJobStatus;
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
+import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,6 +32,9 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
     @Autowired
     Gson gson;
 
+    @Autowired
+    SettingsService settingsService;
+
     @Override
     public CompletableFuture<Result> evaluate(final EvaluationTask evaluationTask,
                                               final Consumer<EvaluationEvent> updateCallback) {
@@ -38,7 +42,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             final List<EvaluationEvent> results = new ArrayList<>();
             KubernetesJobStatus jobStatus;
             try {
-                jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId().toString());
+                jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId(), settingsService.getReplicationFactor());
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
                         EvaluationStatus.FAILED, e.getMessage(), "", "");

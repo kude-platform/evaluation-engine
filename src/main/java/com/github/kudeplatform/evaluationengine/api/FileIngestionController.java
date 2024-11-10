@@ -16,13 +16,14 @@ import java.io.File;
  * @author timo.buechert
  */
 @RestController
+@RequestMapping("/api/fileIngestion")
 @Slf4j
-public class ResultsCollectionController {
+public class FileIngestionController {
 
     private final EvaluationResultRepository evaluationResultRepository;
 
     @Autowired
-    public ResultsCollectionController(final EvaluationResultRepository evaluationResultRepository) {
+    public FileIngestionController(final EvaluationResultRepository evaluationResultRepository) {
         this.evaluationResultRepository = evaluationResultRepository;
     }
 
@@ -41,6 +42,25 @@ public class ResultsCollectionController {
         this.evaluationResultRepository.findById(jobId)
                 .ifPresent(evaluationResultEntity -> {
                     evaluationResultEntity.setResultsAvailable(true);
+                    this.evaluationResultRepository.save(evaluationResultEntity);
+                });
+    }
+
+    @RequestMapping(value = "/logs/{jobId}/{instanceId}", method = RequestMethod.POST)
+    public void saveLogs(@PathVariable String jobId, @PathVariable String instanceId, @RequestParam("file") MultipartFile file) {
+        final String fileName = "logs-" + jobId + "-" + instanceId + file.getOriginalFilename();
+        final File resultsFile = new File(System.getProperty("java.io.tmpdir") + fileName);
+
+        try {
+            file.transferTo(resultsFile);
+        } catch (Exception e) {
+            log.error("Failed to save logs file.", e);
+            throw new RuntimeException("Failed to save logs file.");
+        }
+
+        this.evaluationResultRepository.findById(jobId)
+                .ifPresent(evaluationResultEntity -> {
+                    evaluationResultEntity.setLogsAvailable(true);
                     this.evaluationResultRepository.save(evaluationResultEntity);
                 });
     }
