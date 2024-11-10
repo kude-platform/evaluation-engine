@@ -14,6 +14,9 @@ import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.Route;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+
 /**
  * @author timo.buechert
  */
@@ -31,6 +34,8 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String>, 
     private String jobName;
 
     private Grid<EvaluationEventEntity> grid;
+
+    private DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm:ss", Locale.GERMAN);
 
     public JobView() {
         final H2 title = new H2("Job");
@@ -55,9 +60,10 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String>, 
     private void addEvaluationTable() {
         this.grid = new Grid<>(EvaluationEventEntity.class, false);
         grid.addColumn(EvaluationEventEntity::getIndex).setHeader("Instance Index");
-        grid.addColumn(evaluationResultEntity -> evaluationResultEntity.getTimestamp().toString()).setHeader("Timestamp");
+        grid.addColumn(evaluationResultEntity -> dateTimeFormatter.format(evaluationResultEntity.getTimestamp())).setHeader("Timestamp");
         grid.addColumn(EvaluationEventEntity::getCategory).setHeader("Category");
         grid.addColumn(evaluationEventEntity -> hintsService.getHintForCategory(evaluationEventEntity.getCategory())).setHeader("Hint");
+        grid.addColumn(EvaluationEventEntity::getMessage).setHeader("Message");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         this.add(grid);

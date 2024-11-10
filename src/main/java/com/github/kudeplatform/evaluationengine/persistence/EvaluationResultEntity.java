@@ -21,6 +21,8 @@ public class EvaluationResultEntity {
 
     @Id
     private String taskId;
+    
+    private String name;
 
     private ZonedDateTime timestamp;
 

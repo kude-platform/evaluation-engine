@@ -10,7 +10,6 @@ import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
-import com.github.kudeplatform.evaluationengine.mapper.EvaluationResultMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
@@ -52,8 +51,6 @@ public class EvaluationService {
     final MultiEvaluator multiEvaluator;
 
     final EvaluationEventMapper evaluationEventMapper;
-
-    final EvaluationResultMapper evaluationResultMapper;
 
     final KubernetesService kubernetesService;
 
@@ -110,6 +107,7 @@ public class EvaluationService {
         final EvaluationResultEntity evaluationResultEntity = new EvaluationResultEntity();
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
         evaluationResultEntity.setStatus(EvaluationStatus.PENDING);
+        evaluationResultEntity.setName(evaluationTask.name());
 
         evaluationResultRepository.save(evaluationResultEntity);
         evaluationTaskQueue.add(evaluationTask);
@@ -173,9 +171,12 @@ public class EvaluationService {
                         evaluationResultRepository.save(resultEntity);
 
                     } catch (Exception e) {
-                        log.error("Evaluation failed", e); // TODO: better error handling
-
-                        Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
+                        log.error("Evaluation failed", e);
+                        final EvaluationEvent evaluationEvent = new EvaluationEvent(task.taskId(),
+                                ZonedDateTime.now(), EvaluationStatus.FAILED, e.getMessage(), "", "Evaluation failed");
+                        this.evaluationEventCallback(evaluationEvent);
+                        
+                        final Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         evaluationFutures.remove(task.taskId());
                         final EvaluationResultEntity resultEntity =
                                 evaluationResultRepository.findById(task.taskId()).orElseThrow();

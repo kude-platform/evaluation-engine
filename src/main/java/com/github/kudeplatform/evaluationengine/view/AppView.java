@@ -5,12 +5,15 @@ import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import com.vaadin.flow.router.Route;
+import org.springframework.boot.info.BuildProperties;
 
 /**
  * @author timo.buechert
@@ -18,7 +21,10 @@ import com.vaadin.flow.router.Route;
 @Route("/app")
 public class AppView extends AppLayout {
 
-    public AppView() {
+    private final BuildProperties buildProperties;
+
+    public AppView(final BuildProperties buildProperties) {
+        this.buildProperties = buildProperties;
 
         final DrawerToggle toggle = new DrawerToggle();
         final HorizontalLayout navbarContent = new HorizontalLayout();
@@ -35,12 +41,22 @@ public class AppView extends AppLayout {
         navbarContent.setPadding(true);
         addToNavbar(navbarContent);
 
+        final VerticalLayout navLayout = new VerticalLayout();
+        navLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        navLayout.setHeight("100%");
         final SideNav nav = new SideNav();
         final SideNavItem evaluationLink = new SideNavItem("Evaluation", EvaluationView.class, VaadinIcon.GLASS.create());
         final SideNavItem graphsLink = new SideNavItem("Performance Graphs", GraphView.class, VaadinIcon.CHART.create());
         final SideNavItem settingsLink = new SideNavItem("Settings", SettingsView.class, VaadinIcon.COG.create());
         nav.addItem(evaluationLink, graphsLink, settingsLink);
-        addToDrawer(nav);
+        navLayout.add(nav);
+
+        final Span version = new Span("Version: " + buildProperties.getVersion());
+        version.getStyle().set("margin-top", "auto");
+
+        navLayout.add(version);
+        addToDrawer(navLayout);
+
     }
 
 }

@@ -3,8 +3,6 @@ package com.github.kudeplatform.evaluationengine.config;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapperImpl;
-import com.github.kudeplatform.evaluationengine.mapper.EvaluationResultMapper;
-import com.github.kudeplatform.evaluationengine.mapper.EvaluationResultMapperImpl;
 import com.github.kudeplatform.evaluationengine.view.NotifiableComponent;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
@@ -61,11 +59,6 @@ public class ApplicationConfig {
     @Bean
     EvaluationEventMapper evaluationEventMapper() {
         return new EvaluationEventMapperImpl();
-    }
-
-    @Bean
-    EvaluationResultMapper evaluationResultMapper() {
-        return new EvaluationResultMapperImpl();
     }
 
     @Bean
