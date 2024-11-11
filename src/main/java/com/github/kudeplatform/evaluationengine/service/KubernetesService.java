@@ -60,6 +60,10 @@ public class KubernetesService implements OrchestrationService {
                 .forEach(release -> Helm.uninstall(release.getName()).call());
     }
 
+    public int getNumberOfNodes() throws ApiException {
+        return coreV1Api.listNode().execute().getItems().size();
+    }
+
     public List<V1Pod> getEvaluationPods(String taskId) throws ApiException {
         return getPods(String.format("ddm-akka-%s", taskId));
     }

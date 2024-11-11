@@ -66,9 +66,9 @@ spec:
             - name: "JVM_ARGS"
               value: "-Xms512m -Xmx1024m"
             - name: "RESULTS_ENDPOINT"
-              value: "http://192.168.178.25:8080/api/fileIngestion/results"
+              value: "http://192.168.2.1:8080/api/fileIngestion/results"
             - name: "LOGS_ENDPOINT"
-              value: "http://192.168.178.25:8080/api/fileIngestion/logs"
+              value: "http://192.168.2.1:8080/api/fileIngestion/logs"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:

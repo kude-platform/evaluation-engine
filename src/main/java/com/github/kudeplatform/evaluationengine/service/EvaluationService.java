@@ -21,10 +21,12 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
+import java.io.File;
 import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
 
 /**
  * @author timo.buechert
@@ -68,6 +72,7 @@ public class EvaluationService {
     @PostConstruct
     public void init() {
         this.cancelAllEvaluationTasks();
+        this.deleteAllPreviousResults();
         taskExecutor.execute(new EvaluationRunnable());
     }
 
@@ -125,6 +130,31 @@ public class EvaluationService {
             evaluationResultRepository.save(evaluationResultEntity);
             notifyView();
         }
+    }
+
+    public void deleteEvaluationTask(String taskId) {
+        deleteFilesInTmpDirByPattern(taskId);
+
+        evaluationEventRepository.deleteByTaskId(taskId);
+        evaluationResultRepository.deleteById(taskId);
+        notifyView();
+    }
+
+
+    private void deleteAllPreviousResults() {
+        deleteFilesInTmpDirByPattern("");
+    }
+
+    private void deleteFilesInTmpDirByPattern(final String pattern) {
+        final File folder = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR);
+        final File[] files = folder.listFiles((dir, name) -> name.contains(pattern));
+        Optional.ofNullable(files).ifPresent(f -> {
+            for (final File file : f) {
+                if (!file.delete()) {
+                    log.error("Could not delete file {}", file.getName());
+                }
+            }
+        });
     }
 
     public void cancelAllEvaluationTasks() {

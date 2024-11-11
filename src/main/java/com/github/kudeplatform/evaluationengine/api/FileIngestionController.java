@@ -12,6 +12,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 
+import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
+
 /**
  * @author timo.buechert
  */
@@ -30,7 +32,7 @@ public class FileIngestionController {
     @RequestMapping(value = "/results/{jobId}", method = RequestMethod.POST)
     public void saveResults(@PathVariable String jobId, @RequestParam("file") MultipartFile file) {
         final String fileName = "results-" + jobId;
-        final File resultsFile = new File(System.getProperty("java.io.tmpdir") + fileName + ".txt");
+        final File resultsFile = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + fileName + ".txt");
 
         try {
             file.transferTo(resultsFile);
@@ -49,7 +51,7 @@ public class FileIngestionController {
     @RequestMapping(value = "/logs/{jobId}/{instanceId}", method = RequestMethod.POST)
     public void saveLogs(@PathVariable String jobId, @PathVariable String instanceId, @RequestParam("file") MultipartFile file) {
         final String fileName = "logs-" + jobId + "-" + instanceId + file.getOriginalFilename();
-        final File resultsFile = new File(System.getProperty("java.io.tmpdir") + fileName);
+        final File resultsFile = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + fileName);
 
         try {
             file.transferTo(resultsFile);

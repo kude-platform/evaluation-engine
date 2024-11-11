@@ -2,7 +2,10 @@ package com.github.kudeplatform.evaluationengine.service;
 
 import com.github.kudeplatform.evaluationengine.persistence.SettingsEntity;
 import com.github.kudeplatform.evaluationengine.persistence.SettingsRepository;
+import io.kubernetes.client.openapi.ApiException;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -12,6 +15,7 @@ import java.util.Optional;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SettingsService {
 
     private static final String KEY_TIMEOUT_IN_SECONDS = "timeoutInSeconds";
@@ -19,6 +23,17 @@ public class SettingsService {
     private static final String KEY_REPLICATION_FACTOR = "replicationFactor";
 
     private final SettingsRepository settingsRepository;
+
+    private final KubernetesService kubernetesService;
+
+    @PostConstruct
+    public void init() {
+        try {
+            setReplicationFactor(String.valueOf(kubernetesService.getNumberOfNodes()));
+        } catch (ApiException e) {
+            log.error("Failed to get number of nodes from Kubernetes. Using default value.", e);
+        }
+    }
 
     public int getTimeoutInSeconds() {
         return Integer.parseInt(getSetting(KEY_TIMEOUT_IN_SECONDS).orElse("600"));

@@ -202,7 +202,13 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isFinal()) {
-                return null;
+                final Button button = new Button("Delete");
+                button.setDisableOnClick(true);
+                button.addClickListener(clickEvent -> {
+                    this.evaluationService.deleteEvaluationTask(item.getTaskId());
+                    this.update();
+                });
+                return button;
             }
 
             final Button button = new Button("Cancel");

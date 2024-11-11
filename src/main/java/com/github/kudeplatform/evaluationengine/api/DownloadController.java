@@ -17,6 +17,8 @@ import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
+
 /**
  * @author timo.buechert
  */
@@ -30,7 +32,7 @@ public class DownloadController {
             @PathVariable("file_name") String fileName,
             HttpServletResponse response) {
         try {
-            final InputStream is = new FileInputStream(System.getProperty("java.io.tmpdir") + fileName);
+            final InputStream is = new FileInputStream(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + fileName);
             IOUtils.copy(is, response.getOutputStream());
             response.flushBuffer();
         } catch (IOException ex) {
@@ -44,7 +46,7 @@ public class DownloadController {
     public void getMultipleFilesUsingPattern(
             @PathVariable("file_name_pattern") String fileNamePattern,
             HttpServletResponse response) {
-        final File folder = new File(System.getProperty("java.io.tmpdir"));
+        final File folder = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR);
         final File[] files = folder.listFiles((dir, name) -> name.contains(fileNamePattern));
 
         if (files == null || files.length == 0) {
