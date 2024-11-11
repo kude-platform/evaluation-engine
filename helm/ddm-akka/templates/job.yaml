@@ -38,7 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.1.1'
+          image: 'registry.local/akka-tpch-jdk11:0.1.2'
           ports:
             - containerPort: 7877
               name: master-port
