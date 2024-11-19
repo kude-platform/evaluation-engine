@@ -183,7 +183,7 @@ public class KubernetesService implements OrchestrationService {
     public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
         final String name = String.format("ddm-akka-%s", taskId);
 
-        new Helm(Paths.get(KubernetesService.class.getResource("/helm/ddm-akka").getPath()))
+        new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
                 .set("gitUrl", gitUrl)
