@@ -47,9 +47,6 @@ dependencies {
     implementation 'org.mapstruct:mapstruct:1.6.0'
 
     implementation 'com.marcnuri.helm-java:helm-java:0.0.13'
-    implementation 'com.marcnuri.helm-java:linux-arm64:0.0.13'
-    implementation 'com.marcnuri.helm-java:darwin-arm64:0.0.13'
-    implementation group: 'com.marcnuri.helm-java', name: 'lib-api', version: '0.0.13'
 
     runtimeOnly 'com.h2database:h2'
 
