@@ -183,7 +183,7 @@ public class KubernetesService implements OrchestrationService {
     public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
         final String name = String.format("ddm-akka-%s", taskId);
 
-        new Helm(Paths.get("helm", "ddm-akka"))
+        new Helm(Paths.get(KubernetesService.class.getResource("/helm/ddm-akka").getPath()))
                 .install().withName(name)
                 .set("name", name)
                 .set("gitUrl", gitUrl)
@@ -196,7 +196,10 @@ public class KubernetesService implements OrchestrationService {
 
     public void deleteTask(String taskId) {
         final String name = String.format("ddm-akka-%s", taskId);
-        Helm.uninstall(name).call();
+        Helm.list().call()
+                .stream()
+                .filter(release -> release.getName().equals(name))
+                .forEach(release -> Helm.uninstall(name).call());
     }
 
     public KubernetesJobStatus waitForJobRunning(final String taskId, final int replicas) throws ApiException {
