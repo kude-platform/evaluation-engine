@@ -1,6 +1,7 @@
 package com.github.kudeplatform.evaluationengine.api;
 
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
+import com.github.kudeplatform.evaluationengine.service.EvaluationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,9 +25,13 @@ public class FileIngestionController {
 
     private final EvaluationResultRepository evaluationResultRepository;
 
+    private final EvaluationService evaluationService;
+
     @Autowired
-    public FileIngestionController(final EvaluationResultRepository evaluationResultRepository) {
+    public FileIngestionController(final EvaluationResultRepository evaluationResultRepository,
+                                   final EvaluationService evaluationService) {
         this.evaluationResultRepository = evaluationResultRepository;
+        this.evaluationService = evaluationService;
     }
 
     @RequestMapping(value = "/results/{jobId}", method = RequestMethod.POST)
@@ -45,6 +50,7 @@ public class FileIngestionController {
                 .ifPresent(evaluationResultEntity -> {
                     evaluationResultEntity.setResultsAvailable(true);
                     this.evaluationResultRepository.save(evaluationResultEntity);
+                    this.evaluationService.notifyView();
                 });
     }
 
@@ -64,6 +70,7 @@ public class FileIngestionController {
                 .ifPresent(evaluationResultEntity -> {
                     evaluationResultEntity.setLogsAvailable(true);
                     this.evaluationResultRepository.save(evaluationResultEntity);
+                    this.evaluationService.notifyView();
                 });
     }
 

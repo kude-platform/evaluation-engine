@@ -2,10 +2,11 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.3.3'
     id 'io.spring.dependency-management' version '1.1.6'
+    id 'com.vaadin' version '24.5.5'
 }
 
 group = 'com.example'
-version = '0.2.2-SNAPSHOT'
+version = '0.2.3-SNAPSHOT'
 
 java {
     sourceCompatibility = '17'
@@ -13,6 +14,15 @@ java {
 
 springBoot {
     buildInfo()
+}
+
+bootJar {
+    archiveFileName = "app.jar"
+}
+
+vaadin {
+    vaadinPrepareFrontend
+    vaadinBuildFrontend
 }
 
 repositories {
@@ -27,7 +37,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.retry:spring-retry'
 
-    implementation 'com.vaadin:vaadin-spring-boot-starter:24.4.10'
+    implementation 'com.vaadin:vaadin-spring-boot-starter:24.5.4'
     implementation 'io.kubernetes:client-java:21.0.1'
 
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
@@ -56,7 +66,7 @@ dependencies {
 
 dependencyManagement {
     imports {
-        mavenBom "com.vaadin:vaadin-bom:24.4.10"
+        mavenBom "com.vaadin:vaadin-bom:24.5.4"
     }
 }
 

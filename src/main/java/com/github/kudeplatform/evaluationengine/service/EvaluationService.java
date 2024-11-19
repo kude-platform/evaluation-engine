@@ -255,7 +255,7 @@ public class EvaluationService {
         }
     }
 
-    private void notifyView() {
+    public void notifyView() {
         activeViewComponents.forEach(NotifiableComponent::dataChanged);
     }
 
