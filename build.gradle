@@ -18,9 +18,6 @@ springBoot {
 
 bootJar {
     archiveFileName = "app.jar"
-    from('helm') {
-        into('helm')
-    }
 }
 
 vaadin {
