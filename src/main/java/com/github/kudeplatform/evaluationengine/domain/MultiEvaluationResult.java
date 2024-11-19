@@ -14,7 +14,7 @@ public class MultiEvaluationResult implements Result {
 
     @Override
     public EvaluationTask getEvaluationTask() {
-        return this.results.getFirst().getEvaluationTask();
+        return this.results.stream().findFirst().get().getEvaluationTask();
     }
 
     @Override
