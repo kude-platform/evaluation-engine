@@ -46,7 +46,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation 'org.mapstruct:mapstruct:1.6.0'
 
-    implementation 'com.marcnuri.helm-java:helm-java:0.0.13'
+    implementation 'com.marcnuri.helm-java:helm-java:0.0.9'
 
     runtimeOnly 'com.h2database:h2'
 
