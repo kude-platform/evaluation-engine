@@ -15,6 +15,7 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepos
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.view.NotifiableComponent;
+import io.kubernetes.client.openapi.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -24,18 +25,20 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
 
@@ -46,6 +49,8 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @RequiredArgsConstructor
 @Slf4j
 public class EvaluationService {
+
+    static final int NUMBER_OF_THREADS = 4;
 
     final ThreadPoolTaskExecutor taskExecutor;
 
@@ -65,25 +70,41 @@ public class EvaluationService {
 
     final List<NotifiableComponent> activeViewComponents;
 
-    final ReentrantLock evaluationLock = new ReentrantLock();
+    final Map<String, Future<Result>> evaluationFutures = new HashMap<>();
 
-    final Map<String, Future<Result>> evaluationFutures = new HashMap<String, Future<Result>>();
+    final Map<String, EvaluationRunnable> evaluationIdsToRunnables = new HashMap<>();
 
+    final List<EvaluationRunnable> evaluationRunnables = new ArrayList<>();
+
+    Semaphore evaluationLock;
+
+    int numberOfNodes;
 
     @PostConstruct
-    public void init() {
+    public void init() throws ApiException {
+        this.numberOfNodes = kubernetesService.getNumberOfNodes();
+        this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor()));
         this.cancelAllEvaluationTasks();
         this.deleteAllPreviousResults();
-        taskExecutor.execute(new EvaluationRunnable());
+
+        for (int i = 0; i < NUMBER_OF_THREADS; i++) {
+            final EvaluationRunnable evaluationRunnable = new EvaluationRunnable();
+            evaluationRunnables.add(evaluationRunnable);
+            taskExecutor.execute(evaluationRunnable);
+        }
     }
 
+    @Transactional
     public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         for (final String error : ingestedEvent.getErrors()) {
-            final List<EvaluationEventEntity> byTaskIdAndCategoryAndIndex =
-                    evaluationEventRepository.findByTaskIdAndCategoryAndIndex(ingestedEvent.getEvaluationId(), ingestedEvent.getIndex(), error);
+            final List<EvaluationEventEntity> byTaskIdAndCategory =
+                    evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), error);
 
-            if (!byTaskIdAndCategoryAndIndex.isEmpty()) {
-                byTaskIdAndCategoryAndIndex.get(0).setTimestamp(ZonedDateTime.now());
+            if (!byTaskIdAndCategory.isEmpty()) {
+                final EvaluationEventEntity evaluationEventEntity = byTaskIdAndCategory.get(0);
+                evaluationEventEntity.setTimestamp(ZonedDateTime.now());
+                evaluationEventEntity.setIndex(byTaskIdAndCategory.get(0).getIndex() + "," + ingestedEvent.getIndex());
+                evaluationEventRepository.save(evaluationEventEntity);
             } else {
                 final EvaluationEvent evaluationEvent = new EvaluationEvent(ingestedEvent.getEvaluationId(),
                         ZonedDateTime.now(),
@@ -95,6 +116,19 @@ public class EvaluationService {
             }
         }
         this.notifyView();
+    }
+
+    public boolean isNoJobRunning() {
+        return this.evaluationLock.availablePermits() == calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor());
+    }
+
+    public void updateNumberOfParallelJobs(final int newReplicationFactor) {
+        if (isNoJobRunning()) {
+            this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(newReplicationFactor));
+        } else {
+            log.error("Cannot update number of parallel jobs while jobs are running");
+            throw new IllegalStateException("Cannot update number of parallel jobs while jobs are running");
+        }
     }
 
     public int getPositionInQueue(final String taskId) {
@@ -109,28 +143,55 @@ public class EvaluationService {
         return -1;
     }
 
-    public void submitEvaluationTask(final EvaluationTask evaluationTask) {
+    public void submitEvaluationTask(final EvaluationTask evaluationTask, final boolean notifyView) {
         final EvaluationResultEntity evaluationResultEntity = new EvaluationResultEntity();
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
         evaluationResultEntity.setStatus(EvaluationStatus.PENDING);
         evaluationResultEntity.setName(evaluationTask.name());
 
+        if (evaluationTask instanceof GitEvaluationTask gitEvaluationTask) {
+            String gitUser = settingsService.getGitUsername();
+            String gitToken = settingsService.getGitToken();
+            if (!gitUser.isEmpty() && !gitToken.isEmpty()) {
+                final String gitUrl = gitEvaluationTask.repositoryUrl();
+                gitEvaluationTask.setRepositoryUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
+            }
+        }
+
         evaluationResultRepository.save(evaluationResultEntity);
         evaluationTaskQueue.add(evaluationTask);
-        notifyView();
+        if (notifyView) {
+            notifyView();
+        }
     }
 
-    public void cancelEvaluationTask(String taskId) {
+    public void cancelEvaluationTask(String taskId, boolean notifyView) {
         evaluationTaskQueue.removeIf(task -> task.taskId().equals(taskId));
 
         if (evaluationFutures.containsKey(taskId)) {
             evaluationFutures.get(taskId).cancel(true);
-        } else {
-            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
-            evaluationResultEntity.setStatus(EvaluationStatus.CANCELLED);
-            evaluationResultRepository.save(evaluationResultEntity);
+        }
+
+        if (evaluationIdsToRunnables.containsKey(taskId)) {
+            evaluationIdsToRunnables.get(taskId).cancel();
+        }
+
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        evaluationResultEntity.setStatus(EvaluationStatus.CANCELLED);
+        evaluationResultRepository.save(evaluationResultEntity);
+
+        if (notifyView) {
             notifyView();
         }
+    }
+
+    @Transactional
+    public void cancelAllEvaluationTasks() {
+        evaluationResultRepository.findAll()
+                .stream()
+                .filter(evaluationResultEntity -> !evaluationResultEntity.getStatus().isFinal())
+                .forEach(evaluationResultEntity -> this.cancelEvaluationTask(evaluationResultEntity.getTaskId(), false));
+        notifyView();
     }
 
     @Transactional
@@ -148,6 +209,15 @@ public class EvaluationService {
         deleteFilesInTmpDirByPattern("");
     }
 
+    @Transactional
+    public void deleteAllEvaluationTasks() {
+        cancelAllEvaluationTasks();
+        deleteAllPreviousResults();
+        evaluationEventRepository.deleteAll();
+        evaluationResultRepository.deleteAll();
+        notifyView();
+    }
+
     private void deleteFilesInTmpDirByPattern(final String pattern) {
         final File folder = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR);
         final File[] files = folder.listFiles((dir, name) -> name.contains(pattern));
@@ -160,20 +230,51 @@ public class EvaluationService {
         });
     }
 
-    public void cancelAllEvaluationTasks() {
-        this.kubernetesService.deleteAllTasks();
+    public void submitMassEvaluationTask(final String value, final String additionalCommandLineOptions) {
+        final String[] lines = value.split("\n");
+        for (final String line : lines) {
+            final String[] parts = line.split(";");
+            if (parts.length == 2 && parts[0].trim().startsWith("http")) {
+                final String repositoryUrl = parts[0].trim();
+                final String name = parts[1].trim();
+                final EvaluationTask evaluationTask =
+                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name);
+                this.submitEvaluationTask(evaluationTask, false);
+            }
+        }
+        notifyView();
+    }
+
+    private int calculateMaxNumberOfParallelJobs(final int replicationFactor) {
+        return this.numberOfNodes / replicationFactor;
     }
 
     class EvaluationRunnable implements Runnable {
+
+        private boolean cancelled = false;
+
+        public void cancel() {
+            this.cancelled = true;
+        }
 
         @Override
         public void run() {
             try {
                 while (true) {
-                    final EvaluationTask task = evaluationTaskQueue.take();
+
+                    EvaluationTask task = evaluationTaskQueue.take();
+                    evaluationIdsToRunnables.put(task.taskId(), this);
 
                     try {
-                        evaluationLock.lock();
+                        evaluationLock.acquire();
+
+                        if (cancelled) {
+                            final EvaluationResultEntity resultEntity =
+                                    evaluationResultRepository.findById(task.taskId()).orElseThrow();
+                            resultEntity.setStatus(EvaluationStatus.CANCELLED);
+                            evaluationResultRepository.save(resultEntity);
+                            continue;
+                        }
                         updateTaskStatus(task, EvaluationStatus.DEPLOYING);
                         deploy(task);
 
@@ -210,24 +311,22 @@ public class EvaluationService {
                         this.evaluationEventCallback(evaluationEvent);
                         
                         final Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
-                        evaluationFutures.remove(task.taskId());
                         final EvaluationResultEntity resultEntity =
                                 evaluationResultRepository.findById(task.taskId()).orElseThrow();
                         resultEntity.setStatus(result.getEvaluationStatus());
                         evaluationResultRepository.save(resultEntity);
                     } finally {
-                        evaluationLock.unlock();
+                        evaluationFutures.remove(task.taskId());
+                        evaluationLock.release();
                         kubernetesService.deleteTask(task.taskId());
+                        evaluationIdsToRunnables.remove(task.taskId());
                         notifyView();
+                        this.cancelled = false;
                     }
 
                 }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 log.error("Evaluation failed", e); // TODO: better error handling
-            } finally {
-                evaluationLock.unlock();
             }
         }
 

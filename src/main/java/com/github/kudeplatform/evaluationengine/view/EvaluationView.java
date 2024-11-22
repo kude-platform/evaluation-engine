@@ -9,15 +9,20 @@ import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
@@ -51,7 +56,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final TextField name = new TextField("Name");
 
-    private final TextField additionalCommandLineOptions = new TextField("Additional Command Line Options");
+    private final TextField additionalCommandLineOptions =
+            new TextField("Additional Command Line Options", "-kb true", "");
 
     private final Grid<EvaluationResultEntity> grid;
 
@@ -105,6 +111,28 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         horizontalLayout.add(submitButton);
         horizontalLayout.setAlignItems(Alignment.BASELINE);
 
+        final Dialog massUploadDialog = new Dialog();
+        massUploadDialog.setWidth("100%");
+        massUploadDialog.setHeight("100%");
+
+        final VerticalLayout dialogLayout = createMassUploadDialogLayout(massUploadDialog);
+        massUploadDialog.add(dialogLayout);
+        massUploadDialog.setHeaderTitle("Mass Upload");
+
+        final Button closeButton = new Button(new Icon("lumo", "cross"),
+                (e) -> massUploadDialog.close());
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        massUploadDialog.getHeader().add(closeButton);
+
+        final Button button = new Button("Mass Upload", e -> massUploadDialog.open());
+        horizontalLayout.add(massUploadDialog, button);
+
+        final Button cancelAllButton = new Button("Cancel All", e -> evaluationService.cancelAllEvaluationTasks());
+        horizontalLayout.add(cancelAllButton);
+
+        final Button deleteAllButton = new Button("Delete All", e -> evaluationService.deleteAllEvaluationTasks());
+        horizontalLayout.add(deleteAllButton);
+
         verticalLayout.add(horizontalLayout);
 
         Span uploadSuccessSpan = new Span();
@@ -123,7 +151,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (gitBinder.validate().isOk() && nameBinder.validate().isOk()) {
                 final String uuid = UUID.randomUUID().toString();
                 evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
-                        additionalCommandLineOptions.getValue(), name.getValue()));
+                        additionalCommandLineOptions.getValue(), name.getValue()), true);
 
                 final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
                                 "with the following ID: " + uuid + ".",
@@ -159,6 +187,34 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             this.activeViewComponents.remove(this);
         }
         this.javascriptTimeouts.forEach(s -> UI.getCurrent().getPage().executeJs("clearInterval(" + s + ");console.error('cleared " + s + "');"));
+    }
+
+    private VerticalLayout createMassUploadDialogLayout(Dialog dialog) {
+        TextArea massUpload = new TextArea();
+        massUpload.setPlaceholder("Paste the content of the mass upload file here. The content must be in CSV format following the pattern: " +
+                "repositoryUrl;name");
+        massUpload.setLabel("Mass Upload CSV Content");
+        massUpload.setSizeFull();
+
+        VerticalLayout fieldLayout = new VerticalLayout(massUpload);
+        fieldLayout.setSpacing(false);
+        fieldLayout.setPadding(false);
+        fieldLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        fieldLayout.setSizeFull();
+
+        Button saveButton = new Button("Evaluate", e -> {
+            if (massUpload.isEmpty()) {
+                Notification.show("Please provide a valid CSV content", 5000, Notification.Position.MIDDLE);
+            } else {
+                dialog.close();
+                this.evaluationService.submitMassEvaluationTask(massUpload.getValue(), this.additionalCommandLineOptions.getValue());
+            }
+        });
+        Button cancelButton = new Button("Cancel", e -> dialog.close());
+        dialog.getFooter().add(cancelButton);
+        dialog.getFooter().add(saveButton);
+
+        return fieldLayout;
     }
 
     private Grid<EvaluationResultEntity> createEvaluationTable() {
@@ -214,7 +270,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             final Button button = new Button("Cancel");
             button.setDisableOnClick(true);
             button.addClickListener(clickEvent -> {
-                this.evaluationService.cancelEvaluationTask(item.getTaskId());
+                this.evaluationService.cancelEvaluationTask(item.getTaskId(), true);
                 this.update();
             });
             return button;
@@ -260,4 +316,6 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     private void update() {
         getUI().ifPresent(ui -> ui.access(() -> this.grid.setItems(evaluationResultRepository.findAll())));
     }
+
+
 }

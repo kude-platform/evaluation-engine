@@ -61,9 +61,9 @@ public class KubernetesService implements OrchestrationService {
     }
 
     public int getNumberOfNodes() throws ApiException {
-        return 12;
+        //return 12;
         //TODO: this currently fails due to https://github.com/kubernetes-client/java/issues/3319
-        //return coreV1Api.listNode().execute().getItems().size();
+        return coreV1Api.listNode().execute().getItems().size();
     }
 
     public List<V1Pod> getEvaluationPods(String taskId) throws ApiException {

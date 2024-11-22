@@ -53,7 +53,7 @@ public class ApplicationConfig {
 
     @Bean
     BlockingQueue<EvaluationTask> evaluationTaskQueue() {
-        return new ArrayBlockingQueue<EvaluationTask>(100);
+        return new ArrayBlockingQueue<>(500);
     }
 
     @Bean

@@ -22,6 +22,10 @@ public class SettingsService {
 
     private static final String KEY_REPLICATION_FACTOR = "replicationFactor";
 
+    private static final String KEY_GIT_USERNAME = "gitUsername";
+
+    private static final String KEY_GIT_TOKEN = "gitToken";
+
     private final SettingsRepository settingsRepository;
 
     private final KubernetesService kubernetesService;
@@ -49,6 +53,22 @@ public class SettingsService {
 
     public void setReplicationFactor(final String replicationFactor) {
         setSetting(KEY_REPLICATION_FACTOR, replicationFactor);
+    }
+
+    public String getGitUsername() {
+        return getSetting(KEY_GIT_USERNAME).orElse("");
+    }
+
+    public void setGitUsername(final String gitUsername) {
+        setSetting(KEY_GIT_USERNAME, gitUsername);
+    }
+
+    public String getGitToken() {
+        return getSetting(KEY_GIT_TOKEN).orElse("");
+    }
+
+    public void setGitToken(final String gitToken) {
+        setSetting(KEY_GIT_TOKEN, gitToken);
     }
 
     public Optional<String> getSetting(final String key) {
