@@ -6,7 +6,7 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
-import com.github.kudeplatform.evaluationengine.service.KubernetesStatus;
+import com.github.kudeplatform.evaluationengine.service.ReasonedKubernetesStatus;
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +24,7 @@ import java.util.function.Consumer;
  */
 @Component
 @Qualifier("parallelEvaluator")
-public class EvaluationFinishedEvaluator extends SimpleEvaluator {
+public class PodStatusEvaluator extends SimpleEvaluator {
 
     @Autowired
     KubernetesService kubernetesService;
@@ -40,9 +40,9 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                                               final Consumer<EvaluationEvent> updateCallback) {
         return CompletableFuture.supplyAsync(() -> {
             final List<EvaluationEvent> results = new ArrayList<>();
-            KubernetesStatus jobStatus;
+            ReasonedKubernetesStatus reasonedKubernetesStatus = null;
             try {
-                jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId(), settingsService.getReplicationFactor());
+                reasonedKubernetesStatus = kubernetesService.getPodStatusOncePodsAreRunningOrWaiting(evaluationTask.taskId());
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
                         EvaluationStatus.FAILED, e.getMessage(), "", "");
@@ -53,7 +53,14 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                         results);
             }
 
-            final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(jobStatus);
+            if (reasonedKubernetesStatus.status().isFailed()) {
+                final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
+                        EvaluationStatus.FAILED, reasonedKubernetesStatus.reason(), "", "");
+                updateCallback.accept(finalErrorResult);
+                throw new RuntimeException("Pod failed: " + reasonedKubernetesStatus.reason());
+            }
+
+            final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(reasonedKubernetesStatus.status());
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
                     evaluationStatus, "Evaluation finished.", "", "");

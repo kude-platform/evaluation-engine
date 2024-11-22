@@ -5,6 +5,7 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -21,6 +22,7 @@ import java.util.function.Consumer;
  * @author timo.buechert
  */
 @Component
+@Slf4j
 public class MultiEvaluator implements AsyncEvaluator {
 
     final ThreadPoolTaskExecutor taskExecutor;
@@ -44,11 +46,11 @@ public class MultiEvaluator implements AsyncEvaluator {
         return CompletableFuture.supplyAsync(() -> this.evaluateAsync(fileEvaluationTask, updateCallback));
     }
 
-    private Result evaluateAsync(final EvaluationTask fileEvaluationTask,
+    private Result evaluateAsync(final EvaluationTask evaluationTask,
                                  final Consumer<EvaluationEvent> updateCallback) {
         // first evaluate all sequential precondition evaluators
         for (final AsyncEvaluator evaluator : sequentialPreconditionEvaluators) {
-            final Result result = evaluator.evaluate(fileEvaluationTask, updateCallback).join();
+            final Result result = evaluator.evaluate(evaluationTask, updateCallback).join();
             if (EvaluationStatus.FAILED.equals(result.getEvaluationStatus())) {
                 return result;
             }
@@ -57,13 +59,16 @@ public class MultiEvaluator implements AsyncEvaluator {
         // then evaluate all parallel evaluators
         final List<CompletableFuture<Result>> completableFutures = new ArrayList<>();
         for (final AsyncEvaluator evaluator : parallelEvaluators) {
-            completableFutures.add(evaluator.evaluate(fileEvaluationTask, updateCallback));
+            completableFutures.add(evaluator.evaluate(evaluationTask, updateCallback));
         }
 
         try {
-            CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0])).get();
+            allOfTerminateOnFailure(completableFutures.toArray(new CompletableFuture[0])).get();
 
             for (CompletableFuture<Result> future : completableFutures) {
+                if (future.isCompletedExceptionally()) {
+                    return new SingleEvaluationResult(evaluationTask, EvaluationStatus.FAILED, new ArrayList<>());
+                }
                 if (EvaluationStatus.FAILED.equals(future.get().getEvaluationStatus())) {
                     return future.get();
                 }
@@ -72,9 +77,20 @@ public class MultiEvaluator implements AsyncEvaluator {
             return completableFutures.get(0).get();
 
         } catch (final ExecutionException | InterruptedException | CompletionException e) {
-            e.printStackTrace();
-            return new SingleEvaluationResult(fileEvaluationTask, EvaluationStatus.FAILED, new ArrayList<>());
+            log.error("Error while evaluating task: " + evaluationTask.taskId(), e);
+            return new SingleEvaluationResult(evaluationTask, EvaluationStatus.FAILED, new ArrayList<>());
         }
+    }
+
+    public static CompletableFuture allOfTerminateOnFailure(CompletableFuture<?>... futures) {
+        CompletableFuture<?> failure = new CompletableFuture();
+        for (CompletableFuture<?> f : futures) {
+            f.exceptionally(ex -> {
+                failure.completeExceptionally(ex);
+                return null;
+            });
+        }
+        return CompletableFuture.anyOf(failure, CompletableFuture.allOf(futures));
     }
 
 

@@ -243,7 +243,23 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             return anchor;
         })).setHeader("Performance Graphs");
 
-        grid.addColumn(evaluationResultEntity -> evaluationResultEntity.getStatus().toString()).setHeader("Status");
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            final Span status = new Span(item.getStatus().toString());
+            switch (item.getStatus()) {
+                case PENDING:
+                case DEPLOYING:
+                case RUNNING:
+                    status.getElement().getThemeList().add("badge");
+                case SUCCEEDED:
+                    status.getElement().getThemeList().add("badge success");
+                case TIMEOUT:
+                case FAILED:
+                    status.getElement().getThemeList().add("badge error");
+                case CANCELLED:
+                    status.getElement().getThemeList().add("badge contrast");
+            }
+            return status;
+        })).setHeader("Status");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (!item.getStatus().isRunning()) {

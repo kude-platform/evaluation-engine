@@ -8,6 +8,7 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.CustomObjectsApi;
+import io.kubernetes.client.openapi.apis.EventsV1Api;
 import io.kubernetes.client.util.Config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +50,11 @@ public class ApplicationConfig {
     @Bean
     CustomObjectsApi customObjectsApi() throws IOException {
         return new CustomObjectsApi(kubernetesClient());
+    }
+
+    @Bean
+    EventsV1Api eventsV1Api() throws IOException {
+        return new EventsV1Api(kubernetesClient());
     }
 
     @Bean

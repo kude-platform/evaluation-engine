@@ -9,10 +9,16 @@ import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.CustomObjectsApi;
+import io.kubernetes.client.openapi.apis.EventsV1Api;
+import io.kubernetes.client.openapi.models.V1ContainerState;
+import io.kubernetes.client.openapi.models.V1ContainerStateWaiting;
+import io.kubernetes.client.openapi.models.V1ContainerStatus;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1JobList;
 import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodList;
+import io.kubernetes.client.openapi.models.V1PodStatus;
 import io.kubernetes.client.util.Watch;
 import okhttp3.Call;
 import org.jsoup.Jsoup;
@@ -47,6 +53,9 @@ public class KubernetesService implements OrchestrationService {
 
     @Autowired
     private CustomObjectsApi customObjectsApi;
+
+    @Autowired
+    private EventsV1Api eventsV1Api;
 
     @Autowired
     private ApiClient apiClient;
@@ -202,24 +211,24 @@ public class KubernetesService implements OrchestrationService {
                 .forEach(release -> Helm.uninstall(name).call());
     }
 
-    public KubernetesJobStatus waitForJobRunning(final String taskId, final int replicas) throws ApiException {
-        return waitForJobStatus(taskId, replicas, KubernetesJobStatus::isRunning);
+    public KubernetesStatus waitForJobRunning(final String taskId, final int replicas) throws ApiException {
+        return waitForJobStatus(taskId, replicas, KubernetesStatus::isRunning);
     }
 
-    public KubernetesJobStatus waitForJobCompletion(final String taskId, final int replicas) throws ApiException {
-        return waitForJobStatus(taskId, replicas, KubernetesJobStatus::isFinal);
+    public KubernetesStatus waitForJobCompletion(final String taskId, final int replicas) throws ApiException {
+        return waitForJobStatus(taskId, replicas, KubernetesStatus::isFinal);
     }
 
-    public KubernetesJobStatus waitForJobStatus(final String taskId, final int replicas, final Function<KubernetesJobStatus, Boolean> jobStatusEvaluator) throws ApiException {
+    public KubernetesStatus waitForJobStatus(final String taskId, final int replicas, final Function<KubernetesStatus, Boolean> jobStatusEvaluator) throws ApiException {
         final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
                 .listNamespacedJob("evaluation")
                 .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId));
 
         final V1JobList initialJobList = jobRequest.execute();
 
-        final KubernetesJobStatus kubernetesJobStatus = evaluateJobStatus(initialJobList.getItems().get(0), replicas);
-        if (jobStatusEvaluator.apply(kubernetesJobStatus)) {
-            return kubernetesJobStatus;
+        final KubernetesStatus kubernetesStatus = evaluateJobStatus(initialJobList.getItems().get(0), replicas);
+        if (jobStatusEvaluator.apply(kubernetesStatus)) {
+            return kubernetesStatus;
         }
 
         final Call jobCall = jobRequest.watch(true).buildCall(null);
@@ -229,7 +238,7 @@ public class KubernetesService implements OrchestrationService {
         try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
 
             for (Watch.Response<V1Job> item : watch) {
-                final KubernetesJobStatus status = evaluateJobStatus(item.object, replicas);
+                final KubernetesStatus status = evaluateJobStatus(item.object, replicas);
                 if (jobStatusEvaluator.apply(status)) {
                     return status;
                 }
@@ -239,24 +248,79 @@ public class KubernetesService implements OrchestrationService {
             throw new RuntimeException(e);
         }
 
-        return KubernetesJobStatus.UNKNOWN;
+        return KubernetesStatus.UNKNOWN;
     }
 
-    private KubernetesJobStatus evaluateJobStatus(final V1Job v1Job, final int replicas) {
+    public ReasonedKubernetesStatus getPodStatusOncePodsAreRunningOrWaiting(final String taskId) throws ApiException {
+        final CoreV1Api.APIlistNamespacedPodRequest podRequest = coreV1Api
+                .listNamespacedPod("evaluation");
+
+        final List<V1Pod> initialPodList = podRequest.execute()
+                .getItems().stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith("ddm-akka-" + taskId)).toList();
+
+        final ReasonedKubernetesStatus reasonedKubernetesStatus = getPodStatusOncePodsAreRunningOrWaiting(initialPodList);
+
+        if (reasonedKubernetesStatus.status().isRunning() || reasonedKubernetesStatus.status().isFinal()) {
+            return reasonedKubernetesStatus;
+        }
+
+        final Call jobCall = podRequest.watch(true).buildCall(null);
+        final Type type = new TypeToken<Watch.Response<V1PodList>>() {
+        }.getType();
+
+        try (Watch<V1PodList> watch = Watch.createWatch(apiClient, jobCall, type)) {
+
+            for (Watch.Response<V1PodList> item : watch) {
+                final List<V1Pod> podList = item.object
+                        .getItems().stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith("ddm-akka-" + taskId)).toList();
+                
+                final ReasonedKubernetesStatus reasonedKubernetesStatusWatch = getPodStatusOncePodsAreRunningOrWaiting(podList);
+
+                if (reasonedKubernetesStatusWatch.status().isRunning() || reasonedKubernetesStatusWatch.status().isFinal()) {
+                    return reasonedKubernetesStatus;
+                }
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        return new ReasonedKubernetesStatus(KubernetesStatus.UNKNOWN, null);
+    }
+
+    private ReasonedKubernetesStatus getPodStatusOncePodsAreRunningOrWaiting(final List<V1Pod> podList) {
+        if (podList.stream().allMatch(v1Pod -> Optional.ofNullable(v1Pod.getStatus()).map(V1PodStatus::getPhase).orElse("").equals("Running"))) {
+            return new ReasonedKubernetesStatus(KubernetesStatus.RUNNING, null);
+        }
+
+        for (int i = 0; i < podList.size(); i++) {
+            final V1PodStatus status = podList.get(i).getStatus();
+            for (int j = 0; j < Optional.ofNullable(status).map(V1PodStatus::getContainerStatuses).map(List::size).orElse(0); j++) {
+                Optional<V1ContainerStateWaiting> containerStateWaiting =
+                        Optional.ofNullable(status.getContainerStatuses().get(j)).map(V1ContainerStatus::getState).map(V1ContainerState::getWaiting);
+                if (containerStateWaiting.isPresent() && containerStateWaiting.get().getReason() != null) {
+                    return new ReasonedKubernetesStatus(KubernetesStatus.FAILED, containerStateWaiting.get().getReason());
+                }
+            }
+        }
+        return new ReasonedKubernetesStatus(KubernetesStatus.PENDING, null);
+    }
+
+    private KubernetesStatus evaluateJobStatus(final V1Job v1Job, final int replicas) {
         final int running = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getActive).orElse(0);
         final int failed = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getFailed).orElse(0);
         final int succeeded = Optional.ofNullable(v1Job).map(V1Job::getStatus).map(V1JobStatus::getSucceeded).orElse(0);
 
         if (failed > 0) {
-            return KubernetesJobStatus.FAILED;
+            return KubernetesStatus.FAILED;
         } else if (running == 0 && succeeded == replicas) {
-            return KubernetesJobStatus.SUCCEEDED;
+            return KubernetesStatus.SUCCEEDED;
         } else if (running == replicas) {
-            return KubernetesJobStatus.RUNNING;
+            return KubernetesStatus.RUNNING;
         } else if (running < replicas) {
-            return KubernetesJobStatus.PENDING;
+            return KubernetesStatus.PENDING;
         } else {
-            return KubernetesJobStatus.UNKNOWN;
+            return KubernetesStatus.UNKNOWN;
         }
     }
 

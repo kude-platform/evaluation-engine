@@ -3,7 +3,7 @@ package com.github.kudeplatform.evaluationengine.service;
 /**
  * @author timo.buechert
  */
-public enum KubernetesJobStatus {
+public enum KubernetesStatus {
     PENDING,
     RUNNING,
     SUCCEEDED,
@@ -18,6 +18,10 @@ public enum KubernetesJobStatus {
 
     public boolean isRunning() {
         return this == RUNNING;
+    }
+
+    public boolean isFailed() {
+        return this == FAILED;
     }
 
     public boolean isFinal() {

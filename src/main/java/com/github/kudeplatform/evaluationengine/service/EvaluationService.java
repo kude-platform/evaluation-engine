@@ -81,6 +81,7 @@ public class EvaluationService {
     int numberOfNodes;
 
     @PostConstruct
+    @Transactional
     public void init() throws ApiException {
         this.numberOfNodes = kubernetesService.getNumberOfNodes();
         this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor()));
