@@ -42,7 +42,7 @@ public class PodStatusEvaluator extends SimpleEvaluator {
             final List<EvaluationEvent> results = new ArrayList<>();
             ReasonedKubernetesStatus reasonedKubernetesStatus = null;
             try {
-                reasonedKubernetesStatus = kubernetesService.getPodStatusOncePodsAreRunningOrWaiting(evaluationTask.taskId());
+                reasonedKubernetesStatus = kubernetesService.getPodStatusOncePodsAreRunningOrWaiting(evaluationTask.taskId(), settingsService.getReplicationFactor());
             } catch (Exception e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
                         EvaluationStatus.FAILED, e.getMessage(), "", "");
@@ -63,7 +63,7 @@ public class PodStatusEvaluator extends SimpleEvaluator {
             final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(reasonedKubernetesStatus.status());
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    evaluationStatus, "Evaluation finished.", "", "");
+                    evaluationStatus, "Pods are now running.", "", "");
             results.add(finalResult);
             updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,

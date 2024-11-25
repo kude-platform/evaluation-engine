@@ -38,7 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.2.1'
+          image: 'registry.local/akka-tpch-jdk11:0.2.5'
           ports:
             - containerPort: 7877
               name: master-port
@@ -56,7 +56,7 @@ spec:
             - name: "ADDITIONAL_MASTER_ARGS"
               value: "{{ .Values.additionalCommandLineOptions }} -w 0"
             - name: "ADDITIONAL_WORKER_ARGS"
-              value: "{{ .Values.additionalCommandLineOptions }} -w 1"
+              value: "{{ .Values.additionalCommandLineOptions }}"
             - name: "OFFLINE_MODE"
               value: "false"
             - name: "ADDITIONAL_MAVEN_ARGS"
@@ -64,15 +64,19 @@ spec:
             - name: "UNZIP_DATA"
               value: "true"
             - name: "JVM_ARGS"
-              value: "-Xms512m -Xmx1024m"
+              value: "-Xms2048m -Xmx2048m"
             - name: "RESULTS_ENDPOINT"
               value: "http://192.168.2.1:8080/api/fileIngestion/results"
             - name: "LOGS_ENDPOINT"
               value: "http://192.168.2.1:8080/api/fileIngestion/logs"
             - name: "EVENT_INGESTION_ENDPOINT"
               value: "http://192.168.2.1:8080/ingest/event"
+            - name: "LOG_ANALYZER_ENDPOINT"
+              value: "http://localhost:8089/ingest/logfiles"
             - name: "APPLY_PATCH"
               value: "true"
+            - name: "LOG_TO_CONSOLE"
+              value: "false"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:
@@ -81,10 +85,11 @@ spec:
           resources:
             requests:
               #memory: "2048Mi"
-              memory: "512Mi"
-              cpu: "2000m"
-            limits:
               memory: "2048Mi"
+              cpu: "2"
+            limits:
+              memory: "2548Mi"
+              cpu: "2"
               #memory: "512Mi"
       affinity:
         podAntiAffinity:

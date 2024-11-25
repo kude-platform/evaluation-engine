@@ -46,7 +46,7 @@ public class GraphView extends VerticalLayout implements HasUrlParameter<String>
         this.add(iFrame);
 
         loadButton.addClickListener(event -> {
-            this.iFrame.setSrc("http://pi01.local:31751/graph?g0.expr=container_memory_working_set_bytes%7Bimage%3D~\"registry.local%2Fakka-tpch-jdk11.%2B\"%2C%20namespace%3D%22evaluation%22%2Cpod%3D~%22" +
+            this.iFrame.setSrc("http://pi01.local:30103/graph?g0.expr=container_memory_working_set_bytes%7Bimage%3D~\"registry.local%2Fakka-tpch-jdk11.%2B\"%2C%20namespace%3D%22evaluation%22%2Cpod%3D~%22" +
                     "ddm-akka-" + this.jobId.getValue() +
                     ".%2B%22%7D%20or%20kube_pod_container_resource_limits%7Bpod%3D~%22" +
                     "ddm-akka-" + this.jobId.getValue() +
