@@ -50,7 +50,7 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @Slf4j
 public class EvaluationService {
 
-    static final int NUMBER_OF_THREADS = 4;
+    static final int NUMBER_OF_THREADS = 5;
 
     final ThreadPoolTaskExecutor taskExecutor;
 

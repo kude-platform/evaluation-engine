@@ -38,7 +38,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.2.5'
+          image: 'registry.local/akka-tpch-jdk11:0.2.8'
           ports:
             - containerPort: 7877
               name: master-port
@@ -76,7 +76,7 @@ spec:
             - name: "APPLY_PATCH"
               value: "true"
             - name: "LOG_TO_CONSOLE"
-              value: "false"
+              value: "true"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:

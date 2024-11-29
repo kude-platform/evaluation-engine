@@ -53,6 +53,10 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                         results);
             }
 
+            if (jobStatus.isFailed()) {
+                throw new RuntimeException("Job failed.");
+            }
+
             final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(jobStatus);
 
             final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
