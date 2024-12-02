@@ -1,12 +1,25 @@
 package com.github.kudeplatform.evaluationengine.view;
 
+import com.github.kudeplatform.evaluationengine.persistence.ErrorEventDefinitionEntity;
+import com.github.kudeplatform.evaluationengine.persistence.ErrorEventDefinitionRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.editor.Editor;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.H3;
+import com.vaadin.flow.component.html.Hr;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -30,6 +43,8 @@ public class SettingsView extends VerticalLayout {
 
     final EvaluationService evaluationService;
 
+    final ErrorEventDefinitionRepository errorEventDefinitionRepository;
+
     final TextField timeoutInSeconds;
 
     final TextField replicationFactor;
@@ -39,6 +54,8 @@ public class SettingsView extends VerticalLayout {
     final PasswordField gitToken;
 
     final Button saveButton;
+
+    final Grid<ErrorEventDefinitionEntity> grid;
 
     String timeoutInSecondsValue = "";
 
@@ -51,9 +68,11 @@ public class SettingsView extends VerticalLayout {
     List<Binder> binders = new ArrayList<>();
 
     @Autowired
-    public SettingsView(final SettingsService settingsService, final EvaluationService evaluationService) {
+    public SettingsView(final SettingsService settingsService, final EvaluationService evaluationService,
+                        final ErrorEventDefinitionRepository errorEventDefinitionRepository) {
         this.settingsService = settingsService;
         this.evaluationService = evaluationService;
+        this.errorEventDefinitionRepository = errorEventDefinitionRepository;
         final H2 title = new H2("App Settings");
         this.add(title);
 
@@ -70,6 +89,128 @@ public class SettingsView extends VerticalLayout {
         formLayout.add(gitToken);
         formLayout.add(saveButton);
         this.add(formLayout);
+
+        this.add(new Hr());
+
+        final H3 errorEventDefinitionsTitle = new H3("Error Event Definitions");
+        this.add(errorEventDefinitionsTitle);
+
+        final Span errorEventDefinitionsDescription = new Span("Define error event definitions to categorize error events and mark them as fatal" +
+                "or non-fatal. Error patterns are comma-separated strings that are used to match error messages. The error will be updated in the " +
+                "log-analyzer edge-nodes periodically.");
+
+        this.add(errorEventDefinitionsDescription);
+
+        // Dialog to add new error event definitions
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("New Error Event Definition");
+        TextField modalCategoryField = new TextField("Category");
+        TextField modalErrorPatternsField = new TextField("Error patterns");
+        Checkbox modalFatalCheckbox = new Checkbox("Fatal");
+
+        VerticalLayout dialogLayout = new VerticalLayout(modalCategoryField,
+                modalErrorPatternsField, modalFatalCheckbox);
+        dialogLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        dialogLayout.getStyle().set("width", "18rem").set("max-width", "100%");
+        dialog.add(dialogLayout);
+
+        Button modalSaveButton = new Button("Add", e -> {
+            ErrorEventDefinitionEntity errorEventDefinitionEntity = new ErrorEventDefinitionEntity();
+            errorEventDefinitionEntity.setCategory(modalCategoryField.getValue());
+            errorEventDefinitionEntity.setErrorPatterns(modalErrorPatternsField.getValue());
+            errorEventDefinitionEntity.setFatal(modalFatalCheckbox.getValue());
+            this.errorEventDefinitionRepository.save(errorEventDefinitionEntity);
+            this.updateGrid();
+            dialog.close();
+        });
+        modalSaveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        Button modalCancelButton = new Button("Cancel", e -> dialog.close());
+        dialog.getFooter().add(modalCancelButton);
+        dialog.getFooter().add(modalSaveButton);
+        Button modalShowModalButton = new Button("New item", e -> dialog.open());
+        add(dialog, modalShowModalButton);
+
+        // Grid to display error event definitions
+        ValidationMessage categoryValidationMessage = new ValidationMessage();
+        ValidationMessage errorPatternsValidationMessage = new ValidationMessage();
+
+        grid = new Grid<>(ErrorEventDefinitionEntity.class, false);
+        final Editor<ErrorEventDefinitionEntity> editor = grid.getEditor();
+
+        Grid.Column<ErrorEventDefinitionEntity> categoryColumn = grid
+                .addColumn(ErrorEventDefinitionEntity::getCategory).setHeader("Category")
+                .setWidth("40%").setFlexGrow(0);
+        Grid.Column<ErrorEventDefinitionEntity> errorPatternsColumn = grid
+                .addColumn(ErrorEventDefinitionEntity::getErrorPatterns)
+                .setHeader("Error patterns").setWidth("40%").setFlexGrow(0);
+
+        Grid.Column<ErrorEventDefinitionEntity> fatalColumn = grid
+                .addComponentColumn(errorEventDefinitionEntity -> {
+                    final Checkbox fatalCheckbox = new Checkbox();
+                    fatalCheckbox.setValue(errorEventDefinitionEntity.isFatal());
+                    fatalCheckbox.setEnabled(false);
+                    return fatalCheckbox;
+                }).setHeader("Fatal").setWidth("5%").setFlexGrow(0);
+
+        Grid.Column<ErrorEventDefinitionEntity> editColumn = grid.addComponentColumn(ErrorEventDefinitionEntity -> {
+            final HorizontalLayout actions = new HorizontalLayout();
+            final Button deleteButton = new Button("Delete");
+            deleteButton.addClickListener(e -> {
+                this.errorEventDefinitionRepository.delete(ErrorEventDefinitionEntity);
+                this.updateGrid();
+            });
+            actions.add(deleteButton);
+            final Button editButton = new Button("Edit");
+            editButton.addClickListener(e -> {
+                if (editor.isOpen())
+                    editor.cancel();
+                grid.getEditor().editItem(ErrorEventDefinitionEntity);
+            });
+            actions.add(editButton);
+            return actions;
+        }).setWidth("15%").setFlexGrow(0);
+
+        Binder<ErrorEventDefinitionEntity> binder = new Binder<>(ErrorEventDefinitionEntity.class);
+        editor.setBinder(binder);
+        editor.setBuffered(true);
+
+        TextField categoryField = new TextField();
+        categoryField.setWidthFull();
+        binder.forField(categoryField)
+                .asRequired("Category must not be empty")
+                .withStatusLabel(categoryValidationMessage)
+                .bind(ErrorEventDefinitionEntity::getCategory, ErrorEventDefinitionEntity::setCategory);
+        categoryColumn.setEditorComponent(categoryField);
+
+        TextField errorPatternsField = new TextField();
+        errorPatternsField.setWidthFull();
+        binder.forField(errorPatternsField).asRequired("Error patterns must not be empty")
+                .withStatusLabel(errorPatternsValidationMessage)
+                .bind(ErrorEventDefinitionEntity::getErrorPatterns, ErrorEventDefinitionEntity::setErrorPatterns);
+        errorPatternsColumn.setEditorComponent(errorPatternsField);
+
+        Checkbox fatalCheckbox = new Checkbox();
+        fatalCheckbox.setWidthFull();
+        binder.forField(fatalCheckbox)
+                .bind(ErrorEventDefinitionEntity::isFatal, ErrorEventDefinitionEntity::setFatal);
+        fatalColumn.setEditorComponent(fatalCheckbox);
+
+        Button saveButton = new Button("Save", e -> editor.save());
+        Button cancelButton = new Button(VaadinIcon.CLOSE.create(),
+                e -> editor.cancel());
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_ICON,
+                ButtonVariant.LUMO_ERROR);
+        HorizontalLayout actions = new HorizontalLayout(saveButton,
+                cancelButton);
+        actions.setPadding(false);
+        editColumn.setEditorComponent(actions);
+
+        editor.addSaveListener(e -> {
+            this.errorEventDefinitionRepository.save(e.getItem());
+            grid.setItems(this.errorEventDefinitionRepository.findAll());
+        });
+
+        this.add(grid, categoryValidationMessage, errorPatternsValidationMessage);
     }
 
     @PostConstruct
@@ -129,6 +270,30 @@ public class SettingsView extends VerticalLayout {
 
         });
         this.saveButton.addClickShortcut(Key.ENTER);
+
+        this.addInitialErrorEventDefinitions();
+        this.updateGrid();
+    }
+
+    private void updateGrid() {
+        grid.setItems(this.errorEventDefinitionRepository.findAll());
+    }
+
+    private void addInitialErrorEventDefinitions() {
+        final List<ErrorEventDefinitionEntity> initialErrorEventDefinitions = List.of(
+
+                new ErrorEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", true),
+                new ErrorEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", true),
+                new ErrorEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", true),
+                new ErrorEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", true),
+                new ErrorEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", true),
+                new ErrorEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", true)
+        );
+
+        final List<ErrorEventDefinitionEntity> errorEventDefinitions = this.errorEventDefinitionRepository.findAll();
+        if (errorEventDefinitions.isEmpty()) {
+            this.errorEventDefinitionRepository.saveAll(initialErrorEventDefinitions);
+        }
     }
 
     private boolean areBindersValid() {
