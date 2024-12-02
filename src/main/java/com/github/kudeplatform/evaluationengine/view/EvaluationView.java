@@ -300,11 +300,19 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 anchor.getElement().setAttribute("download", true);
                 return anchor;
             } else if (item.getStatus().isFinal()) {
-                return new Span("Logs not available");
+                return new Span("Logs download not available, check Grafana.");
             }
 
             return null;
-        })).setHeader("Logs");
+        })).setHeader("Logs Download");
+
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            final Anchor anchor = new Anchor();
+            anchor.setText("Grafana");
+            anchor.setHref("http://pi14.local:32300/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0");
+            anchor.setTarget("_blank");
+            return anchor;
+        })).setHeader("Grafana");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isFinal() && item.isResultsAvailable()) {
