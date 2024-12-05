@@ -99,13 +99,11 @@ public class AlertController {
 
     @RequestMapping(value = "/api/alerts", method = RequestMethod.POST)
     public void saveResults(@RequestBody final AlertNotification alertNotification) {
-        log.info("Received alert notification: {}", alertNotification);
         for (final Alert alert : alertNotification.getAlerts()) {
             final String evaluationId = Optional.ofNullable(alert.getLabels().get("label_evaluation_id")).map(Object::toString).orElse("");
             final String alertName = alert.getLabels().get("alertname").toString();
 
-            if (!StringUtils.hasText(evaluationId)) {
-                log.warn("No evaluation ID found in alert {}", alert);
+            if (!StringUtils.hasText(evaluationId) || !"firing".equals(alert.getStatus())) {
                 continue;
             }
 
@@ -123,7 +121,6 @@ public class AlertController {
 
         final Optional<EvaluationResultEntity> evaluationResultEntity = evaluationResultRepository.findById(evaluationId);
         if (evaluationResultEntity.isEmpty()) {
-            log.error("Evaluation result with ID {} not found", evaluationId);
             return;
         }
 
@@ -137,7 +134,6 @@ public class AlertController {
 
         final Optional<EvaluationResultEntity> evaluationResultEntity = evaluationResultRepository.findById(evaluationId);
         if (evaluationResultEntity.isEmpty()) {
-            log.error("Evaluation result with ID {} not found", evaluationId);
             return;
         }
 

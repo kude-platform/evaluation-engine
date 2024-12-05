@@ -282,12 +282,13 @@ public class SettingsView extends VerticalLayout {
     private void addInitialErrorEventDefinitions() {
         final List<ErrorEventDefinitionEntity> initialErrorEventDefinitions = List.of(
 
-                new ErrorEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", true),
-                new ErrorEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", true),
-                new ErrorEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", true),
-                new ErrorEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", true),
+                new ErrorEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", false),
+                new ErrorEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", false),
+                new ErrorEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", false),
+                new ErrorEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", false),
                 new ErrorEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", true),
-                new ErrorEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", true)
+                new ErrorEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", false),
+                new ErrorEventDefinitionEntity(null, "Message too large", "Failed to serialize oversized message", false)
         );
 
         final List<ErrorEventDefinitionEntity> errorEventDefinitions = this.errorEventDefinitionRepository.findAll();

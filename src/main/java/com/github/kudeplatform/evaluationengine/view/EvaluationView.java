@@ -54,6 +54,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final TextField gitRepositoryUrl = new TextField("GIT Repository URL");
 
+    private final TextField gitBranch = new TextField("GIT Branch", "main", "");
+
     private final TextField name = new TextField("Name");
 
     private final TextField additionalCommandLineOptions =
@@ -89,6 +91,10 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         gitRepositoryUrl.setTooltipText("In case the repository is private, please include an access token. " +
                 "Example: https://token@github.com/username/repository");
 
+        horizontalLayout.add(gitBranch);
+        gitBranch.setRequiredIndicatorVisible(true);
+        gitBranch.setErrorMessage("This field is required");
+
         horizontalLayout.add(name);
         name.setRequiredIndicatorVisible(true);
         name.setErrorMessage("This field is required");
@@ -101,6 +107,11 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 .withValidator(new StringLengthValidator("GIT Repository URL must contain at least 1 character", 1, null))
                 .withValidator(new RegexpValidator("GIT Repository URL must be in a URL format", "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"))
                 .bind(GitEvaluationTask::repositoryUrl, GitEvaluationTask::setRepositoryUrl);
+
+        final Binder<GitEvaluationTask> gitBranchBinder = new Binder<>(GitEvaluationTask.class);
+        gitBranchBinder.forField(gitBranch)
+                .withValidator(new StringLengthValidator("GIT Branch URL must contain at least 1 character", 1, null))
+                .bind(GitEvaluationTask::gitBranch, GitEvaluationTask::setGitBranch);
 
         final Binder<GitEvaluationTask> nameBinder = new Binder<>(GitEvaluationTask.class);
         nameBinder.forField(name)
@@ -151,7 +162,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (gitBinder.validate().isOk() && nameBinder.validate().isOk()) {
                 final String uuid = UUID.randomUUID().toString();
                 evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
-                        additionalCommandLineOptions.getValue(), name.getValue()), true);
+                        additionalCommandLineOptions.getValue(), name.getValue(), gitBranch.getValue()), true);
 
                 final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
                                 "with the following ID: " + uuid + ".",

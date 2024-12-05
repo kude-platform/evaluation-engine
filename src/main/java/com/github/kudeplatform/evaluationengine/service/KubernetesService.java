@@ -176,7 +176,7 @@ public class KubernetesService implements OrchestrationService {
         throw new OrchestrationServiceException("Unexpected result type");
     }
 
-    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
+    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
@@ -186,10 +186,11 @@ public class KubernetesService implements OrchestrationService {
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
                 .set("evaluationId", taskId)
+                .set("gitBranch", gitBranch)
                 .call();
     }
 
-    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds) {
+    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch) {
         final String name = String.format("ddm-akka-%s", taskId);
 
         new Helm(Paths.get("helm", "ddm-akka"))
@@ -200,6 +201,7 @@ public class KubernetesService implements OrchestrationService {
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
                 .set("evaluationId", taskId)
+                .set("gitBranch", gitBranch)
                 .call();
     }
 

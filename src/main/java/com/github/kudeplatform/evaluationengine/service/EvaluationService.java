@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.service;
 
+import com.github.kudeplatform.evaluationengine.api.Error;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
@@ -21,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
@@ -97,26 +99,45 @@ public class EvaluationService {
 
     @Transactional
     public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
-        for (final String error : ingestedEvent.getErrors()) {
-            final List<EvaluationEventEntity> byTaskIdAndCategory =
-                    evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), error);
-
-            if (!byTaskIdAndCategory.isEmpty()) {
-                final EvaluationEventEntity evaluationEventEntity = byTaskIdAndCategory.get(0);
-                evaluationEventEntity.setTimestamp(ZonedDateTime.now());
-                evaluationEventEntity.setIndex(byTaskIdAndCategory.get(0).getIndex() + "," + ingestedEvent.getIndex());
-                evaluationEventRepository.save(evaluationEventEntity);
-            } else {
-                final EvaluationEvent evaluationEvent = new EvaluationEvent(ingestedEvent.getEvaluationId(),
-                        ZonedDateTime.now(),
-                        EvaluationStatus.RUNNING,
-                        "", ingestedEvent.getIndex(),
-                        error);
-
-                evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
+        if (!CollectionUtils.isEmpty(ingestedEvent.getErrorObjects())) {
+            for (final Error error : ingestedEvent.getErrorObjects()) {
+                handleError(ingestedEvent, error.getCategory());
+            }
+            final boolean fatal = ingestedEvent.getErrorObjects().stream().anyMatch(Error::isFatal);
+            if (fatal) {
+                cancelEvaluationTask(ingestedEvent.getEvaluationId(), false);
+                
+                final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
+                resultEntity.setStatus(EvaluationStatus.FAILED);
+                evaluationResultRepository.save(resultEntity);
+            }
+        } else if (!CollectionUtils.isEmpty(ingestedEvent.getErrors())) {
+            for (final String error : ingestedEvent.getErrors()) {
+                handleError(ingestedEvent, error);
             }
         }
+
         this.notifyView();
+    }
+
+    private void handleError(final IngestedEvent ingestedEvent, final String error) {
+        final List<EvaluationEventEntity> byTaskIdAndCategory =
+                evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), error);
+
+        if (!byTaskIdAndCategory.isEmpty()) {
+            final EvaluationEventEntity evaluationEventEntity = byTaskIdAndCategory.get(0);
+            evaluationEventEntity.setTimestamp(ZonedDateTime.now());
+            evaluationEventEntity.setIndex(byTaskIdAndCategory.get(0).getIndex() + "," + ingestedEvent.getIndex());
+            evaluationEventRepository.save(evaluationEventEntity);
+        } else {
+            final EvaluationEvent evaluationEvent = new EvaluationEvent(ingestedEvent.getEvaluationId(),
+                    ZonedDateTime.now(),
+                    EvaluationStatus.RUNNING,
+                    "", ingestedEvent.getIndex(),
+                    error);
+
+            evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
+        }
     }
 
     public boolean isNoJobRunning() {
@@ -239,7 +260,7 @@ public class EvaluationService {
                 final String repositoryUrl = parts[0].trim();
                 final String name = parts[1].trim();
                 final EvaluationTask evaluationTask =
-                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name);
+                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name, "main");
                 this.submitEvaluationTask(evaluationTask, false);
             }
         }
@@ -347,11 +368,11 @@ public class EvaluationService {
     private void deploy(EvaluationTask task) {
         if (task instanceof FileEvaluationTask) {
             kubernetesService.deployTask(task.taskId(), task.additionalCommandLineOptions(),
-                    settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds());
+                    settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds(), "");
         } else if (task instanceof GitEvaluationTask gitEvaluationTask) {
             kubernetesService.deployTask(task.taskId(), gitEvaluationTask.repositoryUrl(),
                     task.additionalCommandLineOptions(), settingsService.getReplicationFactor(),
-                    settingsService.getTimeoutInSeconds());
+                    settingsService.getTimeoutInSeconds(), gitEvaluationTask.gitBranch());
         }
     }
 

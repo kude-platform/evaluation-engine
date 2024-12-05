@@ -15,5 +15,7 @@ public class IngestedEvent {
     private String index;
 
     private List<String> errors;
+    
+    private List<Error> errorObjects;
 
 }

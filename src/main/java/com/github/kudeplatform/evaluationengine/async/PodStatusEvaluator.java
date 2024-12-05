@@ -10,7 +10,6 @@ import com.github.kudeplatform.evaluationengine.service.ReasonedKubernetesStatus
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.google.gson.Gson;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.time.ZonedDateTime;
@@ -23,7 +22,7 @@ import java.util.function.Consumer;
  * @author timo.buechert
  */
 @Component
-@Qualifier("parallelEvaluator")
+//@Qualifier("parallelEvaluator")
 public class PodStatusEvaluator extends SimpleEvaluator {
 
     @Autowired
