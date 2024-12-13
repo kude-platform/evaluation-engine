@@ -23,11 +23,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +69,8 @@ public class EvaluationService {
     final KubernetesService kubernetesService;
 
     final SettingsService settingsService;
+
+    final TextService textService;
 
     final BlockingQueue<EvaluationTask> evaluationTaskQueue;
 
@@ -109,6 +113,7 @@ public class EvaluationService {
                 
                 final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
                 resultEntity.setStatus(EvaluationStatus.FAILED);
+                resultEntity.setMessage(textService.getText("evaluation.error.fatal"));
                 evaluationResultRepository.save(resultEntity);
             }
         } else if (!CollectionUtils.isEmpty(ingestedEvent.getErrors())) {
@@ -269,6 +274,32 @@ public class EvaluationService {
 
     private int calculateMaxNumberOfParallelJobs(final int replicationFactor) {
         return this.numberOfNodes / replicationFactor;
+    }
+
+    public boolean areResultsCorrect(final String results) {
+        final List<String> solutionList = Arrays.asList(settingsService.getExpectedSolution().split("\n"));
+        final List<String> resultList = Arrays.asList(results.split("\n"));
+
+        final List<String> cleanedSolutionList = solutionList.stream().filter(StringUtils::hasText).map(String::trim).toList();
+        final List<String> cleanedResultList = resultList.stream().filter(StringUtils::hasText).map(String::trim).toList();
+
+        if (cleanedSolutionList.size() != cleanedResultList.size()) {
+            return false;
+        }
+
+        for (final String cleanedSolution : cleanedSolutionList) {
+            if (!cleanedResultList.contains(cleanedSolution)) {
+                return false;
+            }
+        }
+
+        for (final String cleanedResult : cleanedResultList) {
+            if (!cleanedSolutionList.contains(cleanedResult)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     class EvaluationRunnable implements Runnable {

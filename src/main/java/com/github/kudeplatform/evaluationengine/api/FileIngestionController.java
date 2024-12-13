@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.IOException;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
 
@@ -35,7 +36,9 @@ public class FileIngestionController {
     }
 
     @RequestMapping(value = "/results/{jobId}", method = RequestMethod.POST)
-    public void saveResults(@PathVariable String jobId, @RequestParam("file") MultipartFile file) {
+    public void saveResults(@PathVariable String jobId, @RequestParam("file") MultipartFile file) throws IOException {
+        final String results = new String(file.getBytes());
+
         final String fileName = "results-" + jobId;
         final File resultsFile = new File(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + fileName + ".txt");
 
@@ -46,9 +49,12 @@ public class FileIngestionController {
             throw new RuntimeException("Failed to save results file.");
         }
 
+        final boolean areResultsCorrect = this.evaluationService.areResultsCorrect(results);
+
         this.evaluationResultRepository.findById(jobId)
                 .ifPresent(evaluationResultEntity -> {
                     evaluationResultEntity.setResultsAvailable(true);
+                    evaluationResultEntity.setResultsCorrect(areResultsCorrect);
                     this.evaluationResultRepository.save(evaluationResultEntity);
                     this.evaluationService.notifyView();
                 });

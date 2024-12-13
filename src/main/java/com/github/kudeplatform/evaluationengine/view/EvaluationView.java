@@ -272,6 +272,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             return status;
         })).setHeader("Status");
 
+        grid.addColumn(EvaluationResultEntity::getMessage).setHeader("Message");
+
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (!item.getStatus().isRunning()) {
                 return null;
@@ -304,26 +306,23 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         })).setHeader("Action");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
+            final VerticalLayout layout = new VerticalLayout();
+            final Anchor grafanaAnchor = new Anchor();
+            grafanaAnchor.setText("Grafana");
+            grafanaAnchor.setHref("http://pi14.local:32300/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0");
+            grafanaAnchor.setTarget("_blank");
+            layout.add(grafanaAnchor);
+
             if (item.getStatus().isFinal() && item.isLogsAvailable()) {
-                Anchor anchor = new Anchor();
-                anchor.setText("Logs Download");
-                anchor.setHref("/api/files/download/pattern/logs-" + item.getTaskId());
-                anchor.getElement().setAttribute("download", true);
-                return anchor;
-            } else if (item.getStatus().isFinal()) {
-                return new Span("Logs download not available, check Grafana.");
+                Anchor logsDownloadAnchor = new Anchor();
+                logsDownloadAnchor.setText("Logs Download");
+                logsDownloadAnchor.setHref("/api/files/download/pattern/logs-" + item.getTaskId());
+                logsDownloadAnchor.getElement().setAttribute("download", true);
+                layout.add(logsDownloadAnchor);
             }
 
-            return null;
-        })).setHeader("Logs Download");
-
-        grid.addColumn(new ComponentRenderer<>(item -> {
-            final Anchor anchor = new Anchor();
-            anchor.setText("Grafana");
-            anchor.setHref("http://pi14.local:32300/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0");
-            anchor.setTarget("_blank");
-            return anchor;
-        })).setHeader("Grafana");
+            return layout;
+        })).setHeader("Logs");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isFinal() && item.isResultsAvailable()) {
@@ -338,6 +337,23 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
             return null;
         })).setHeader("Results");
+
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            if (item.getStatus().isFinal() && item.isResultsAvailable()) {
+                final Span status = new Span();
+                if (item.isResultsCorrect()) {
+                    status.setText("Correct solution");
+                    status.getElement().getThemeList().add("badge success");
+                } else {
+                    status.setText("Incorrect solution");
+                    status.getElement().getThemeList().add("badge error");
+                }
+
+                return status;
+            }
+
+            return null;
+        })).setHeader("Results Status");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         return grid;

@@ -1,0 +1,7 @@
+tpch_lineitem -> tpch_nation: [L_SHIPMODE, L_SHIPINSTRUCT] c [N_REGIONKEY, N_NATIONKEY]
+tpch_orders -> tpch_nation: [O_COMMENT, O_CLERK] c [N_COMMENT, N_COMMENT]
+tpch_customer -> tpch_lineitem: [C_NAME, C_MKTSEGMENT] c [L_EXTENDEDPRICE, L_RECEIPT]
+tpch_lineitem -> tpch_orders: [L_RETURNFLAG, L_PARTKEY] c [O_ORDER, O_ORDERKEY]
+tpch_part -> tpch_lineitem: [P_MFGR, P_CONTAINER] c [L_RECEIPT, L_COMMIT]
+tpch_orders -> tpch_region: [O_COMMENT, O_CUSTKEY] c [R_COMMENT, R_COMMENT]
+tpch_supplier -> tpch_lineitem: [S_COMMENT, S_COMMENT] c [L_LINENUMBER, L_QUANTITY]

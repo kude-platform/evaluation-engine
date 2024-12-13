@@ -22,6 +22,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.PasswordField;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.validator.RegexpValidator;
@@ -55,6 +56,12 @@ public class SettingsView extends VerticalLayout {
 
     final Button saveButton;
 
+
+    final TextArea expectedSolutionInput = new TextArea("Expected Solution");
+
+    final Button saveExpectedSolutionButton = new Button("Save");
+
+
     final Grid<ErrorEventDefinitionEntity> grid;
 
     String timeoutInSecondsValue = "";
@@ -64,6 +71,7 @@ public class SettingsView extends VerticalLayout {
     String gitUsernameValue = "";
 
     String gitTokenValue = "";
+
 
     List<Binder> binders = new ArrayList<>();
 
@@ -89,6 +97,20 @@ public class SettingsView extends VerticalLayout {
         formLayout.add(gitToken);
         formLayout.add(saveButton);
         this.add(formLayout);
+
+        this.add(new Hr());
+
+        final H3 expectedSolutionTitle = new H3("Expected Solution");
+        this.add(expectedSolutionTitle);
+        this.expectedSolutionInput.setSizeFull();
+        this.expectedSolutionInput.setValue(settingsService.getExpectedSolution());
+        this.add(expectedSolutionInput);
+        this.add(saveExpectedSolutionButton);
+        this.saveExpectedSolutionButton.addClickListener(event -> {
+            settingsService.setExpectedSolution(expectedSolutionInput.getValue());
+            Notification.show("Saved expected solution", 5000, Notification.Position.TOP_CENTER);
+        });
+
 
         this.add(new Hr());
 

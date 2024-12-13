@@ -58,7 +58,7 @@ spec:
             - name: "ADDITIONAL_MASTER_ARGS"
               value: "{{ .Values.additionalCommandLineOptions }} -w 0"
             - name: "ADDITIONAL_WORKER_ARGS"
-              value: "{{ .Values.additionalCommandLineOptions }} -w 16"
+              value: "{{ .Values.additionalCommandLineOptions }} -w 12"
             - name: "OFFLINE_MODE"
               value: "false"
             - name: "ADDITIONAL_MAVEN_ARGS"
@@ -79,10 +79,10 @@ spec:
               value: "true"
             - name: "LOG_TO_CONSOLE"
               value: "true"
-            - name: "REMOVE_LINES_IN_FILES"
-              value: "./data/TPCH/tpch_lineitem.csv,./data/TPCH/tpch_orders.csv"
-            - name: "REMOVE_AMOUNT_IN_PERCENT"
-              value: "50"
+            #            - name: "REMOVE_LINES_IN_FILES"
+            #              value: "./data/TPCH/tpch_lineitem.csv,./data/TPCH/tpch_orders.csv"
+            #            - name: "REMOVE_AMOUNT_IN_PERCENT"
+            #              value: "50"
             - name: "POD_IP"
               valueFrom:
                 fieldRef:

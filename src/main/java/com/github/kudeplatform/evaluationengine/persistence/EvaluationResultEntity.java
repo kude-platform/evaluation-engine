@@ -32,6 +32,8 @@ public class EvaluationResultEntity {
 
     private boolean resultsAvailable;
 
+    private boolean resultsCorrect;
+
     @Lob
     private String message;
 

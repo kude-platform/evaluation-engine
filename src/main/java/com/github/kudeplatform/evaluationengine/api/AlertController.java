@@ -7,9 +7,10 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepos
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
+import com.github.kudeplatform.evaluationengine.service.TextService;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,7 @@ import java.util.Optional;
  */
 @RestController
 @Slf4j
+@AllArgsConstructor
 public class AlertController {
 
     private final EvaluationResultRepository evaluationResultRepository;
@@ -33,18 +35,9 @@ public class AlertController {
 
     private final EvaluationService evaluationService;
 
-    private final EvaluationEventMapper evaluationEventMapper;
+    private final TextService textService;
 
-    @Autowired
-    public AlertController(final EvaluationResultRepository evaluationResultRepository,
-                           final EvaluationEventRepository evaluationEventRepository,
-                           final EvaluationService evaluationService,
-                           final EvaluationEventMapper evaluationEventMapper) {
-        this.evaluationResultRepository = evaluationResultRepository;
-        this.evaluationEventRepository = evaluationEventRepository;
-        this.evaluationService = evaluationService;
-        this.evaluationEventMapper = evaluationEventMapper;
-    }
+    private final EvaluationEventMapper evaluationEventMapper;
 
     /**
      * {
@@ -146,6 +139,7 @@ public class AlertController {
         this.evaluationService.cancelEvaluationTask(evaluationId, false);
 
         entity.setStatus(EvaluationStatus.FAILED);
+        entity.setMessage(textService.getText("evaluation.metrics.cpu.usage.all.nodes"));
         this.evaluationResultRepository.save(entity);
         this.evaluationService.notifyView();
     }
