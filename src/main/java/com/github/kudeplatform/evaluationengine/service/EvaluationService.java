@@ -44,6 +44,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
 
@@ -290,7 +291,7 @@ public class EvaluationService {
                     .resultsAvailable(evaluationResultEntity.isResultsAvailable())
                     .resultsCorrect(evaluationResultEntity.isResultsCorrect())
                     .message(evaluationResultEntity.getMessage())
-                    .events(evaluationEventEntities.stream().map(EvaluationEventEntity::getCategory).reduce("", (a, b) -> a + "," + b))
+                    .events(evaluationEventEntities.stream().map(EvaluationEventEntity::getCategory).distinct().collect(Collectors.joining(",")))
                     .build();
             evaluationResultWithEventsList.add(evaluationResultWithEvents);
         }
