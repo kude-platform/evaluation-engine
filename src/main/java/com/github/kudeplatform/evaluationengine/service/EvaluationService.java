@@ -4,6 +4,7 @@ import com.github.kudeplatform.evaluationengine.api.Error;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.FileEvaluationTask;
@@ -71,6 +72,8 @@ public class EvaluationService {
     final SettingsService settingsService;
 
     final TextService textService;
+
+    final FileSystemService fileSystemService;
 
     final BlockingQueue<EvaluationTask> evaluationTaskQueue;
 
@@ -270,6 +273,28 @@ public class EvaluationService {
             }
         }
         notifyView();
+    }
+
+    @Transactional
+    public void exportAllResultsToFile() {
+        final List<EvaluationResultEntity> evaluationResultEntities = evaluationResultRepository.findAll();
+        final List<EvaluationResultWithEvents> evaluationResultWithEventsList = new ArrayList<>();
+        for (final EvaluationResultEntity evaluationResultEntity : evaluationResultEntities) {
+            final List<EvaluationEventEntity> evaluationEventEntities = evaluationEventRepository.findByTaskId(evaluationResultEntity.getTaskId());
+            final EvaluationResultWithEvents evaluationResultWithEvents = EvaluationResultWithEvents.builder()
+                    .taskId(evaluationResultEntity.getTaskId())
+                    .name(evaluationResultEntity.getName())
+                    .timestamp(evaluationResultEntity.getTimestamp())
+                    .status(evaluationResultEntity.getStatus())
+                    .logsAvailable(evaluationResultEntity.isLogsAvailable())
+                    .resultsAvailable(evaluationResultEntity.isResultsAvailable())
+                    .resultsCorrect(evaluationResultEntity.isResultsCorrect())
+                    .message(evaluationResultEntity.getMessage())
+                    .events(evaluationEventEntities.stream().map(EvaluationEventEntity::getCategory).reduce("", (a, b) -> a + "," + b))
+                    .build();
+            evaluationResultWithEventsList.add(evaluationResultWithEvents);
+        }
+        fileSystemService.saveToCsvFile(evaluationResultWithEventsList);
     }
 
     private int calculateMaxNumberOfParallelJobs(final int replicationFactor) {

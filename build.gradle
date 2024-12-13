@@ -50,6 +50,8 @@ dependencies {
 
     implementation 'com.marcnuri.helm-java:helm-java:0.0.9'
 
+    implementation 'org.apache.commons:commons-csv:1.12.0'
+
     OperatingSystem os = DefaultNativePlatform.currentOperatingSystem;
 
     if (os.isMacOsX()) {

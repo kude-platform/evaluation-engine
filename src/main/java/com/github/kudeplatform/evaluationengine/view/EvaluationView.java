@@ -144,6 +144,21 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         final Button deleteAllButton = new Button("Delete All", e -> evaluationService.deleteAllEvaluationTasks());
         horizontalLayout.add(deleteAllButton);
 
+        final Button exportResults = new Button("Export Results", e -> {
+            evaluationService.exportAllResultsToFile();
+            final Span span = new Span("Exported results to file. Download the file here: ");
+            final Anchor resultsDownloadAnchor = new Anchor();
+            resultsDownloadAnchor.setText("File");
+            resultsDownloadAnchor.setHref("/api/files/download/single/export.csv");
+            resultsDownloadAnchor.getElement().setAttribute("download", true);
+
+            final Notification notification = new Notification(span, resultsDownloadAnchor);
+            notification.setDuration(5000);
+            notification.setPosition(Notification.Position.TOP_CENTER);
+            notification.open();
+        });
+        horizontalLayout.add(exportResults);
+
         verticalLayout.add(horizontalLayout);
 
         Span uploadSuccessSpan = new Span();
