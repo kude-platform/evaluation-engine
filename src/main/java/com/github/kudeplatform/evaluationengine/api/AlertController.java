@@ -92,7 +92,9 @@ public class AlertController {
 
     @RequestMapping(value = "/api/alerts", method = RequestMethod.POST)
     public void saveResults(@RequestBody final AlertNotification alertNotification) {
+        log.info("Received alert notification: {}", alertNotification);
         for (final Alert alert : alertNotification.getAlerts()) {
+            log.info("Received alert: {}", alert);
             final String evaluationId = Optional.ofNullable(alert.getLabels().get("label_evaluation_id")).map(Object::toString).orElse("");
             final String alertName = alert.getLabels().get("alertname").toString();
 
