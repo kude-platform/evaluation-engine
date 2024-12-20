@@ -21,15 +21,15 @@ import com.vaadin.flow.router.Route;
  * @author timo.buechert
  */
 @Route(value = "/app/data", layout = AppView.class)
-public class DataView extends VerticalLayout implements NotifiableComponent {
+public class DatasetView extends VerticalLayout implements NotifiableComponent {
 
     private final FileSystemService fileSystemService;
 
     private final Grid<Dataset> datasetGrid = new Grid<>();
 
-    public DataView(final FileSystemService fileSystemService) {
+    public DatasetView(final FileSystemService fileSystemService) {
         this.fileSystemService = fileSystemService;
-        final H2 title = new H2("Data");
+        final H2 title = new H2("Datasets");
         this.add(title);
 
         final Upload upload = this.createUploadComponent();

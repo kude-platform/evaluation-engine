@@ -44,7 +44,7 @@ public class AppView extends AppLayout {
         final SideNav nav = new SideNav();
         final SideNavItem evaluationLink = new SideNavItem("Evaluation", EvaluationView.class, VaadinIcon.GLASS.create());
         final SideNavItem graphsLink = new SideNavItem("Performance Graphs", GraphView.class, VaadinIcon.CHART.create());
-        final SideNavItem dataLink = new SideNavItem("Data", DataView.class, VaadinIcon.DATABASE.create());
+        final SideNavItem dataLink = new SideNavItem("Datasets", DatasetView.class, VaadinIcon.DATABASE.create());
         final SideNavItem settingsLink = new SideNavItem("Settings", SettingsView.class, VaadinIcon.COG.create());
         nav.addItem(evaluationLink, graphsLink, dataLink, settingsLink);
         navLayout.add(nav);
