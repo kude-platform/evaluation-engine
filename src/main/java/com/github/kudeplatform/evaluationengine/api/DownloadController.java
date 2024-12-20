@@ -12,11 +12,13 @@ import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_DATA_PATH;
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
 
 /**
@@ -31,15 +33,28 @@ public class DownloadController {
     public void getFile(
             @PathVariable("file_name") String fileName,
             HttpServletResponse response) {
+        getFile(fileName, response, KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR);
+    }
+
+    @RequestMapping(value = "/download/data/{file_name}", method = RequestMethod.GET)
+    public void getDataset(
+            @PathVariable("file_name") String fileName,
+            HttpServletResponse response) {
+        getFile(fileName, response, KUDE_DATA_PATH);
+    }
+
+    private void getFile(@PathVariable("file_name") String fileName, HttpServletResponse response, String dataPath) {
         try {
-            final InputStream is = new FileInputStream(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + fileName);
+            final InputStream is = new FileInputStream(dataPath + fileName);
             IOUtils.copy(is, response.getOutputStream());
             response.flushBuffer();
+        } catch (FileNotFoundException ex) {
+            log.info("File not found. Filename was '{}'", fileName, ex);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
         } catch (IOException ex) {
             log.info("Error writing file to output stream. Filename was '{}'", fileName, ex);
             throw new RuntimeException("IOError writing file to output stream");
         }
-
     }
 
     @RequestMapping(value = "/download/pattern/{file_name_pattern}", method = RequestMethod.GET, produces = "application/zip")
