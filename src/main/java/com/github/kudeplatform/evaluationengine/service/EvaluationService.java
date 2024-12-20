@@ -261,7 +261,7 @@ public class EvaluationService {
         });
     }
 
-    public void submitMassEvaluationTask(final String value, final String additionalCommandLineOptions) {
+    public void submitMassEvaluationTask(final String value, final String additionalCommandLineOptions, String branchName, String datasetName) {
         final String[] lines = value.split("\n");
         for (final String line : lines) {
             final String[] parts = line.split(";");
@@ -269,7 +269,7 @@ public class EvaluationService {
                 final String repositoryUrl = parts[0].trim();
                 final String name = parts[1].trim();
                 final EvaluationTask evaluationTask =
-                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name, "main");
+                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name, branchName, datasetName);
                 this.submitEvaluationTask(evaluationTask, false);
             }
         }
@@ -425,11 +425,11 @@ public class EvaluationService {
     private void deploy(EvaluationTask task) {
         if (task instanceof FileEvaluationTask) {
             kubernetesService.deployTask(task.taskId(), task.additionalCommandLineOptions(),
-                    settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds(), "");
+                    settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds(), "", task.datasetName());
         } else if (task instanceof GitEvaluationTask gitEvaluationTask) {
             kubernetesService.deployTask(task.taskId(), gitEvaluationTask.repositoryUrl(),
                     task.additionalCommandLineOptions(), settingsService.getReplicationFactor(),
-                    settingsService.getTimeoutInSeconds(), gitEvaluationTask.gitBranch());
+                    settingsService.getTimeoutInSeconds(), gitEvaluationTask.gitBranch(), gitEvaluationTask.datasetName());
         }
     }
 

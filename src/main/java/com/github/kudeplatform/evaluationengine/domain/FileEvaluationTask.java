@@ -6,7 +6,7 @@ package com.github.kudeplatform.evaluationengine.domain;
 public class FileEvaluationTask extends EvaluationTask {
 
     public FileEvaluationTask(String taskId, String additionalCommandLineOptions) {
-        super(taskId, additionalCommandLineOptions, "");
+        super(taskId, additionalCommandLineOptions, "", "");
     }
 
 }

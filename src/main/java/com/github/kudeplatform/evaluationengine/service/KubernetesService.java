@@ -3,6 +3,7 @@ package com.github.kudeplatform.evaluationengine.service;
 import com.google.gson.internal.LinkedTreeMap;
 import com.google.gson.reflect.TypeToken;
 import com.marcnuri.helm.Helm;
+import com.marcnuri.helm.InstallCommand;
 import io.kubernetes.client.PodLogs;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -176,10 +177,10 @@ public class KubernetesService implements OrchestrationService {
         throw new OrchestrationServiceException("Unexpected result type");
     }
 
-    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch) {
+    public void deployTask(String taskId, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch, String datasetName) {
         final String name = String.format("ddm-akka-%s", taskId);
 
-        new Helm(Paths.get("helm", "ddm-akka"))
+        final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
                 .set("additionalCommandLineOptions", additionalCommandLineOptions)
@@ -187,13 +188,15 @@ public class KubernetesService implements OrchestrationService {
                 .set("timeoutInSeconds", timeoutInSeconds)
                 .set("evaluationId", taskId)
                 .set("gitBranch", gitBranch)
-                .call();
+                .set("datasetPath", getDatasetPath(datasetName));
+        addStartCommands(installCommand);
+        installCommand.call();
     }
 
-    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch) {
+    public void deployTask(String taskId, String gitUrl, String additionalCommandLineOptions, int numberOfReplicas, int timeoutInSeconds, String gitBranch, String datasetName) {
         final String name = String.format("ddm-akka-%s", taskId);
 
-        new Helm(Paths.get("helm", "ddm-akka"))
+        InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(name)
                 .set("name", name)
                 .set("gitUrl", gitUrl)
@@ -202,7 +205,28 @@ public class KubernetesService implements OrchestrationService {
                 .set("timeoutInSeconds", timeoutInSeconds)
                 .set("evaluationId", taskId)
                 .set("gitBranch", gitBranch)
-                .call();
+                .set("datasetPath", getDatasetPath(datasetName));
+
+        addStartCommands(installCommand);
+        installCommand.call();
+    }
+
+    private void addStartCommands(final InstallCommand installCommand) {
+        Map<String, String> startCommands = getStartCommands();
+        for (Map.Entry<String, String> entry : startCommands.entrySet()) {
+            installCommand.set("startCommands." + entry.getKey(), entry.getValue());
+        }
+    }
+
+    private Map<String, String> getStartCommands() {
+        final Map<String, String> startCommands = new HashMap<>();
+        startCommands.put("START_COMMAND_0", "java -jar app.jar master");
+        startCommands.put("START_COMMAND_1", "java -jar app.jar worker");
+        return startCommands;
+    }
+
+    private String getDatasetPath(final String datasetName) {
+        return String.format("/data/%s", datasetName);
     }
 
     public void deleteTask(String taskId) {

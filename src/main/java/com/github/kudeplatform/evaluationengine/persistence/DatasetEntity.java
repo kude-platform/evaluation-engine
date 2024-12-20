@@ -24,5 +24,8 @@ public class DatasetEntity {
     @Column(unique = true)
     private String name;
 
+    @Column(unique = true)
+    private String fileName;
+
     private String path;
 }

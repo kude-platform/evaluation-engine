@@ -11,10 +11,13 @@ public class EvaluationTask {
 
     private final String additionalCommandLineOptions;
 
-    public EvaluationTask(String taskId, String additionalCommandLineOptions, String name) {
+    private final String datasetName;
+
+    public EvaluationTask(String taskId, String additionalCommandLineOptions, String name, String datasetName) {
         this.taskId = taskId;
         this.additionalCommandLineOptions = additionalCommandLineOptions;
         this.name = name;
+        this.datasetName = datasetName;
     }
 
     public String taskId() {
@@ -35,6 +38,10 @@ public class EvaluationTask {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String datasetName() {
+        return datasetName;
     }
 
 }

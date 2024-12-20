@@ -117,7 +117,7 @@ public class FileSystemService {
             throw new RuntimeException("Could not store the uploaded file. The error was: " + e.getMessage());
         }
 
-        datasetRepository.save(new DatasetEntity(null, fileName, destination.getAbsolutePath()));
+        datasetRepository.save(new DatasetEntity(null, getDatasetName(fileName), fileName, destination.getAbsolutePath()));
     }
 
     public List<Dataset> getAvailableDatasets() {
@@ -141,7 +141,7 @@ public class FileSystemService {
 
         Stream.of(files)
                 .filter(file -> file.getName().endsWith(".zip"))
-                .map(file -> new Dataset(file.getName(), file.getAbsolutePath()))
+                .map(file -> new Dataset(getDatasetName(file.getName()), file.getName(), file.getAbsolutePath()))
                 .forEach(dataset -> {
                     try {
                         datasetRepository.save(datasetMapper.toEntity(dataset));
@@ -158,5 +158,9 @@ public class FileSystemService {
             throw new RuntimeException("Could not delete dataset " + name);
         }
         this.datasetRepository.delete(byName);
+    }
+
+    private String getDatasetName(final String fileName) {
+        return fileName.substring(fileName.lastIndexOf('/') + 1, fileName.lastIndexOf('.'));
     }
 }

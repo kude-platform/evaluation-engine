@@ -36,6 +36,10 @@ spec:
       restartPolicy: Never
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
+      volumes:
+        - name: data
+          hostPath:
+            path: {{ .Values.datasetPath }}
       containers:
         - name: 'ddm-akka'
           image: 'registry.local/akka-tpch-jdk11:0.2.15'
@@ -88,6 +92,12 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: status.podIP
+            - name: "DATA_PATH"
+              value: {{ .Values.datasetPath }}
+            {{- range $key, $value := $.Values.startCommands }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
           resources:
             requests:
               #memory: "2048Mi"

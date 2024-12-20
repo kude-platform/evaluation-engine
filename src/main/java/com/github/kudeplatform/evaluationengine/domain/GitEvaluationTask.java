@@ -9,8 +9,8 @@ public class GitEvaluationTask extends EvaluationTask {
 
     private String gitBranch;
 
-    public GitEvaluationTask(String repositoryUrl, String taskId, String additionalCommandLineOptions, String name, String gitBranch) {
-        super(taskId, additionalCommandLineOptions, name);
+    public GitEvaluationTask(String repositoryUrl, String taskId, String additionalCommandLineOptions, String name, String gitBranch, String datasetName) {
+        super(taskId, additionalCommandLineOptions, name, datasetName);
         this.repositoryUrl = repositoryUrl;
         this.gitBranch = gitBranch;
     }

@@ -1,9 +1,11 @@
 package com.github.kudeplatform.evaluationengine.view;
 
+import com.github.kudeplatform.evaluationengine.domain.Dataset;
 import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
+import com.github.kudeplatform.evaluationengine.service.FileSystemService;
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.Key;
@@ -22,6 +24,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
@@ -50,6 +53,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final EvaluationService evaluationService;
 
+    private final FileSystemService fileSystemService;
+
     private final List<NotifiableComponent> activeViewComponents;
 
     private final TextField gitRepositoryUrl = new TextField("GIT Repository URL");
@@ -57,6 +62,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     private final TextField gitBranch = new TextField("GIT Branch", "main", "");
 
     private final TextField name = new TextField("Name");
+
+    private final Select<String> datasetName = new Select<>();
 
     private final TextField additionalCommandLineOptions =
             new TextField("Additional Command Line Options", "-kb true", "");
@@ -68,10 +75,16 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     @Autowired
     public EvaluationView(final EvaluationResultRepository evaluationResultRepository,
                           final EvaluationService evaluationService,
+                          final FileSystemService fileSystemService,
                           final List<NotifiableComponent> activeViewComponents) {
         this.evaluationResultRepository = evaluationResultRepository;
         this.evaluationService = evaluationService;
+        this.fileSystemService = fileSystemService;
         this.activeViewComponents = activeViewComponents;
+
+        this.datasetName.setLabel("Dataset");
+        this.datasetName.setItems(fileSystemService.getAvailableDatasets().stream().map(Dataset::name).toList());
+        this.datasetName.setValue(fileSystemService.getAvailableDatasets().stream().findFirst().map(Dataset::name).orElse(""));
 
         final H2 title = new H2("Evaluation");
         this.add(title);
@@ -94,6 +107,11 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         horizontalLayout.add(gitBranch);
         gitBranch.setRequiredIndicatorVisible(true);
         gitBranch.setErrorMessage("This field is required");
+
+        horizontalLayout.add(datasetName);
+        datasetName.setRequiredIndicatorVisible(true);
+        datasetName.setErrorMessage("This field is required");
+        datasetName.setTooltipText("The dataset to use for the evaluation");
 
         horizontalLayout.add(name);
         name.setRequiredIndicatorVisible(true);
@@ -174,10 +192,10 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         final Button submitButton = new Button("Submit");
         submitButton.addClickShortcut(Key.ENTER);
         submitButton.addClickListener(event -> {
-            if (gitBinder.validate().isOk() && nameBinder.validate().isOk()) {
+            if (gitBinder.validate().isOk() && nameBinder.validate().isOk() && !datasetName.isEmpty()) {
                 final String uuid = UUID.randomUUID().toString();
                 evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
-                        additionalCommandLineOptions.getValue(), name.getValue(), gitBranch.getValue()), true);
+                        additionalCommandLineOptions.getValue(), name.getValue(), gitBranch.getValue(), datasetName.getValue()), true);
 
                 final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
                                 "with the following ID: " + uuid + ".",
@@ -233,7 +251,8 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 Notification.show("Please provide a valid CSV content", 5000, Notification.Position.MIDDLE);
             } else {
                 dialog.close();
-                this.evaluationService.submitMassEvaluationTask(massUpload.getValue(), this.additionalCommandLineOptions.getValue());
+                this.evaluationService.submitMassEvaluationTask(massUpload.getValue(), this.additionalCommandLineOptions.getValue(),
+                        this.gitBranch.getValue(), this.datasetName.getValue());
             }
         });
         Button cancelButton = new Button("Cancel", e -> dialog.close());
