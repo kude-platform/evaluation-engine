@@ -39,15 +39,18 @@ spec:
       volumes:
         - name: data
           hostPath:
-            path: {{ .Values.datasetPath }}
+            path: /data/{{ .Values.datasetName }}
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.2.15'
+          image: 'registry.local/akka-tpch-jdk11:0.3.2'
           ports:
             - containerPort: 7877
               name: master-port
             - containerPort: 7879
               name: worker-port
+          volumeMounts:
+            - name: data
+              mountPath: /data/{{ .Values.datasetName }}
           env:
             - name: "JOB_NAME"
               value: {{ .Values.name }}
@@ -59,24 +62,16 @@ spec:
               value: {{ .Values.gitUrl }}
             - name: "GIT_BRANCH"
               value: {{ .Values.gitBranch }}
-            - name: "ADDITIONAL_MASTER_ARGS"
-              value: "{{ .Values.additionalCommandLineOptions }} -w 0"
-            - name: "ADDITIONAL_WORKER_ARGS"
-              value: "{{ .Values.additionalCommandLineOptions }} -w 12"
             - name: "OFFLINE_MODE"
               value: "false"
             - name: "ADDITIONAL_MAVEN_ARGS"
               value: "-DskipTests"
-            - name: "UNZIP_DATA"
-              value: "true"
-            - name: "JVM_ARGS"
-              value: "-Xms2048m -Xmx2048m"
             - name: "RESULTS_ENDPOINT"
-              value: "http://evaluationengine:8080/api/fileIngestion/results"
+              value: "http://192.168.2.14:8080/api/fileIngestion/results"
             - name: "LOGS_ENDPOINT"
-              value: "http://evaluationengine:8080/api/fileIngestion/logs"
+              value: "http://192.168.2.14:8080/api/fileIngestion/logs"
             - name: "EVENT_INGESTION_ENDPOINT"
-              value: "http://evaluationengine:8080/ingest/event"
+              value: "http://192.168.2.14:8080/ingest/event"
             - name: "LOG_ANALYZER_ENDPOINT"
               value: "http://localhost:8089/ingest/logfiles"
             - name: "APPLY_PATCH"

@@ -1,5 +1,7 @@
 package com.github.kudeplatform.evaluationengine.domain;
 
+import java.util.List;
+
 /**
  * @author timo.buechert
  */
@@ -9,13 +11,13 @@ public class EvaluationTask {
 
     private String name;
 
-    private final String additionalCommandLineOptions;
+    private final List<String> instanceStartCommands;
 
     private final String datasetName;
 
-    public EvaluationTask(String taskId, String additionalCommandLineOptions, String name, String datasetName) {
+    public EvaluationTask(String taskId, List<String> instanceStartCommands, String name, String datasetName) {
         this.taskId = taskId;
-        this.additionalCommandLineOptions = additionalCommandLineOptions;
+        this.instanceStartCommands = instanceStartCommands;
         this.name = name;
         this.datasetName = datasetName;
     }
@@ -28,8 +30,8 @@ public class EvaluationTask {
         this.taskId = taskId;
     }
 
-    public String additionalCommandLineOptions() {
-        return additionalCommandLineOptions;
+    public List<String> instanceStartCommands() {
+        return instanceStartCommands;
     }
 
     public String name() {

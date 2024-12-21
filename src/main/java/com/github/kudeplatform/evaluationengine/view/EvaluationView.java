@@ -17,6 +17,7 @@ import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.notification.Notification;
@@ -35,6 +36,7 @@ import com.vaadin.flow.router.Route;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
@@ -65,12 +67,11 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final Select<String> datasetName = new Select<>();
 
-    private final TextField additionalCommandLineOptions =
-            new TextField("Additional Command Line Options", "-kb true", "");
-
     private final Grid<EvaluationResultEntity> grid;
 
     private final List<String> javascriptTimeouts = new ArrayList<>();
+
+    private List<String> instanceStartCommands = new ArrayList<>();
 
     @Autowired
     public EvaluationView(final EvaluationResultRepository evaluationResultRepository,
@@ -118,8 +119,6 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         name.setErrorMessage("This field is required");
         name.setTooltipText("Your name or a descriptive name for the evaluation task");
 
-        horizontalLayout.add(additionalCommandLineOptions);
-
         final Binder<GitEvaluationTask> gitBinder = new Binder<>(GitEvaluationTask.class);
         gitBinder.forField(gitRepositoryUrl)
                 .withValidator(new StringLengthValidator("GIT Repository URL must contain at least 1 character", 1, null))
@@ -136,7 +135,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 .withValidator(new StringLengthValidator("Name must contain at least 1 character", 1, null))
                 .bind(GitEvaluationTask::name, GitEvaluationTask::setName);
 
-        final Button submitButton = createSubmitButton(evaluationService, gitBinder, nameBinder);
+        final Button submitButton = createSubmitButton(gitBinder, nameBinder);
         horizontalLayout.add(submitButton);
         horizontalLayout.setAlignItems(Alignment.BASELINE);
 
@@ -186,30 +185,114 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         verticalLayout.add(this.grid);
     }
 
-    @NotNull
-    private Button createSubmitButton(EvaluationService evaluationService, Binder<GitEvaluationTask> gitBinder,
-                                      Binder<GitEvaluationTask> nameBinder) {
-        final Button submitButton = new Button("Submit");
+    private Dialog createInstanceStartCommandsDialog() {
+        final Dialog dialog = new Dialog();
+        dialog.setSizeFull();
+        dialog.setHeaderTitle("Instance Start Commands");
+
+        final Button closeButton = new Button(new Icon("lumo", "cross"),
+                (e) -> dialog.close());
+        closeButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        dialog.getHeader().add(closeButton);
+
+        final H2 title = new H2("Instance Start Commands");
+        final Span explanationSpan = new Span("Please provide the start commands for each node.");
+
+        dialog.add(title, explanationSpan, new Hr());
+
+        final int numberOfNodes = evaluationService.getNumberOfNodes();
+
+        final VerticalLayout layout = new VerticalLayout();
+        layout.setAlignItems(FlexComponent.Alignment.STRETCH);
+        layout.setWidth("100%");
+
+        final List<TextField> workerInstanceStartCommandFields = new ArrayList<>();
+        final List<Binder<GitEvaluationTask>> binders = new ArrayList<>();
+
+        for (int i = 0; i < numberOfNodes; i++) {
+            final HorizontalLayout horizontalLayout = new HorizontalLayout();
+            horizontalLayout.setAlignItems(Alignment.BASELINE);
+
+            final TextField textField = new TextField("Node " + i);
+            textField.setRequiredIndicatorVisible(true);
+            textField.setWidth("100%");
+            textField.setErrorMessage("This field is required");
+            textField.setPlaceholder("Start command for node " + i);
+            textField.setClearButtonVisible(true);
+            textField.setTooltipText("The command to start the evaluation instance on node " + i);
+            textField.setValue(this.evaluationService.getTemplateStartCommand(i, this.datasetName.getValue()));
+            horizontalLayout.add(textField);
+            this.instanceStartCommands.add(textField.getValue());
+
+            if (i != 0) {
+                workerInstanceStartCommandFields.add(textField);
+            }
+
+            if (i == 1) {
+                final Button copyButton = new Button("Copy to workers");
+                copyButton.addClickListener(event -> {
+                    workerInstanceStartCommandFields.stream().filter(field -> !field.equals(textField)).forEach(field -> field.setValue(textField.getValue()));
+                });
+                horizontalLayout.add(copyButton);
+            }
+
+
+            layout.add(horizontalLayout);
+
+            final Binder<GitEvaluationTask> binder = new Binder<>(GitEvaluationTask.class);
+            int finalI = i;
+
+            binder.forField(textField)
+                    .withValidator(new StringLengthValidator("Start command must contain at least 1 character", 1, null))
+                    .bind(gitEvaluationTask -> gitEvaluationTask.instanceStartCommands().get(finalI),
+                            (gitEvaluationTask, s) -> gitEvaluationTask.instanceStartCommands().set(finalI, s));
+            binders.add(binder);
+        }
+
+        dialog.add(layout);
+
+        final Button submitButton = createSubmitButtonInInstanceStartCommandsDialog(binders, dialog);
         submitButton.addClickShortcut(Key.ENTER);
+        final Button cancelButton = new Button("Cancel", e -> dialog.close());
+
+        dialog.getFooter().add(cancelButton);
+        dialog.getFooter().add(submitButton);
+
+        return dialog;
+    }
+
+    @NotNull
+    private Button createSubmitButtonInInstanceStartCommandsDialog(List<Binder<GitEvaluationTask>> binders, Dialog dialog) {
+        final Button submitButton = new Button("Submit");
         submitButton.addClickListener(event -> {
-            if (gitBinder.validate().isOk() && nameBinder.validate().isOk() && !datasetName.isEmpty()) {
-                final String uuid = UUID.randomUUID().toString();
-                evaluationService.submitEvaluationTask(new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
-                        additionalCommandLineOptions.getValue(), name.getValue(), gitBranch.getValue(), datasetName.getValue()), true);
+            final String uuid = UUID.randomUUID().toString();
+            final GitEvaluationTask gitEvaluationTask = new GitEvaluationTask(gitRepositoryUrl.getValue(), uuid,
+                    instanceStartCommands, name.getValue(), gitBranch.getValue(), datasetName.getValue());
+
+            if (instanceStartCommands.stream().allMatch(StringUtils::hasText)
+                    && binders.stream().allMatch(Binder::isValid)) {
+                binders.forEach(binder -> binder.writeBeanIfValid(gitEvaluationTask));
+                evaluationService.submitEvaluationTask(gitEvaluationTask, true);
+                dialog.close();
 
                 final Notification notification = Notification.show("Submitted. The Evaluation request will be handled " +
                                 "with the following ID: " + uuid + ".",
                         5000, Notification.Position.TOP_CENTER);
                 notification.addThemeVariants(NotificationVariant.LUMO_PRIMARY);
-                submitButton.setEnabled(false);
-                new Thread(() -> {
-                    try {
-                        Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                        log.error("Thread interrupted", e);
-                    }
-                    getUI().ifPresent(ui -> ui.access(() -> submitButton.setEnabled(true)));
-                }).start();
+                this.instanceStartCommands = new ArrayList<>();
+            }
+        });
+        return submitButton;
+    }
+
+    @NotNull
+    private Button createSubmitButton(final Binder<GitEvaluationTask> gitBinder,
+                                      final Binder<GitEvaluationTask> nameBinder) {
+        final Button submitButton = new Button("Submit");
+        submitButton.addClickShortcut(Key.ENTER);
+        submitButton.addClickListener(event -> {
+            if (gitBinder.validate().isOk() && nameBinder.validate().isOk() && !datasetName.isEmpty()) {
+                this.createInstanceStartCommandsDialog().open();
             }
 
         });
@@ -251,7 +334,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 Notification.show("Please provide a valid CSV content", 5000, Notification.Position.MIDDLE);
             } else {
                 dialog.close();
-                this.evaluationService.submitMassEvaluationTask(massUpload.getValue(), this.additionalCommandLineOptions.getValue(),
+                this.evaluationService.submitMassEvaluationTask(massUpload.getValue(), instanceStartCommands,
                         this.gitBranch.getValue(), this.datasetName.getValue());
             }
         });

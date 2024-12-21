@@ -7,7 +7,6 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
-import com.github.kudeplatform.evaluationengine.domain.FileEvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
@@ -18,6 +17,7 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEnti
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.view.NotifiableComponent;
 import io.kubernetes.client.openapi.ApiException;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -86,9 +86,10 @@ public class EvaluationService {
 
     final List<EvaluationRunnable> evaluationRunnables = new ArrayList<>();
 
-    Semaphore evaluationLock;
+    private Semaphore evaluationLock;
 
-    int numberOfNodes;
+    @Getter
+    private int numberOfNodes;
 
     @PostConstruct
     @Transactional
@@ -261,7 +262,7 @@ public class EvaluationService {
         });
     }
 
-    public void submitMassEvaluationTask(final String value, final String additionalCommandLineOptions, String branchName, String datasetName) {
+    public void submitMassEvaluationTask(final String value, final List<String> instanceStartCommands, String branchName, String datasetName) {
         final String[] lines = value.split("\n");
         for (final String line : lines) {
             final String[] parts = line.split(";");
@@ -269,7 +270,7 @@ public class EvaluationService {
                 final String repositoryUrl = parts[0].trim();
                 final String name = parts[1].trim();
                 final EvaluationTask evaluationTask =
-                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), additionalCommandLineOptions, name, branchName, datasetName);
+                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), instanceStartCommands, name, branchName, datasetName);
                 this.submitEvaluationTask(evaluationTask, false);
             }
         }
@@ -326,6 +327,14 @@ public class EvaluationService {
         }
 
         return true;
+    }
+
+    public String getTemplateStartCommand(final int instanceId, String datasetName) {
+        if (instanceId == 0) {
+            return String.format("java -Xms2048m -Xmx2048m -jar ./app.jar master -h $CURRENT_HOST -ia $POD_IP -kb true -ip /data/%s", datasetName);
+        }
+
+        return "java -Xms2048m -Xmx2048m -jar ./app.jar worker -mh $MASTER_HOST -h $CURRENT_HOST -ia $POD_IP -kb true -w 4";
     }
 
     class EvaluationRunnable implements Runnable {
@@ -423,12 +432,9 @@ public class EvaluationService {
     }
 
     private void deploy(EvaluationTask task) {
-        if (task instanceof FileEvaluationTask) {
-            kubernetesService.deployTask(task.taskId(), task.additionalCommandLineOptions(),
-                    settingsService.getReplicationFactor(), settingsService.getTimeoutInSeconds(), "", task.datasetName());
-        } else if (task instanceof GitEvaluationTask gitEvaluationTask) {
+        if (task instanceof GitEvaluationTask gitEvaluationTask) {
             kubernetesService.deployTask(task.taskId(), gitEvaluationTask.repositoryUrl(),
-                    task.additionalCommandLineOptions(), settingsService.getReplicationFactor(),
+                    task.instanceStartCommands(), settingsService.getReplicationFactor(),
                     settingsService.getTimeoutInSeconds(), gitEvaluationTask.gitBranch(), gitEvaluationTask.datasetName());
         }
     }

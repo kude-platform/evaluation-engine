@@ -1,8 +1,10 @@
 package com.github.kudeplatform.evaluationengine.view;
 
+import com.github.kudeplatform.evaluationengine.api.DataController;
 import com.github.kudeplatform.evaluationengine.domain.Dataset;
 import com.github.kudeplatform.evaluationengine.service.FileSystemService;
 import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
@@ -17,6 +19,8 @@ import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.Route;
 
+import java.util.List;
+
 /**
  * @author timo.buechert
  */
@@ -25,10 +29,18 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
 
     private final FileSystemService fileSystemService;
 
+    private final DataController dataController;
+
+    final List<NotifiableComponent> activeViewComponents;
+
     private final Grid<Dataset> datasetGrid = new Grid<>();
 
-    public DatasetView(final FileSystemService fileSystemService) {
+    private final Span lastUpdatedSpan;
+
+    public DatasetView(final FileSystemService fileSystemService, DataController dataController, List<NotifiableComponent> activeViewComponents) {
         this.fileSystemService = fileSystemService;
+        this.dataController = dataController;
+        this.activeViewComponents = activeViewComponents;
         final H2 title = new H2("Datasets");
         this.add(title);
 
@@ -38,6 +50,9 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
         final Span explanationSpan
                 = new Span("Upload a dataset as a ZIP file. The dataset will be synchronized with all nodes asynchronously.");
         this.add(explanationSpan);
+
+        lastUpdatedSpan = new Span("Last updated by nodes: " + dataController.getLastUpdatedByNode());
+        this.add(lastUpdatedSpan);
 
         this.add(new Hr());
 
@@ -58,6 +73,10 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
             });
             return button;
         })).setHeader("Action");
+        datasetGrid.addColumn(new ComponentRenderer<>(item -> {
+            final Span span = new Span();
+            return span;
+        })).setHeader("Synced by Nodes");
         datasetGrid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
         this.add(datasetsTitle, datasetGrid);
         this.update();
@@ -67,6 +86,16 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         this.update();
+        synchronized (this.activeViewComponents) {
+            this.activeViewComponents.add(this);
+        }
+    }
+
+    @Override
+    protected void onDetach(DetachEvent detachEvent) {
+        synchronized (this.activeViewComponents) {
+            this.activeViewComponents.remove(this);
+        }
     }
 
     private Upload createUploadComponent() {
@@ -100,6 +129,9 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
     }
 
     private void update() {
-        getUI().ifPresent(ui -> ui.access(() -> this.datasetGrid.setItems(fileSystemService.getAvailableDatasets())));
+        getUI().ifPresent(ui -> ui.access(() -> {
+            this.datasetGrid.setItems(fileSystemService.getAvailableDatasets());
+            this.lastUpdatedSpan.setText("Last updated by nodes: " + dataController.getLastUpdatedByNode());
+        }));
     }
 }
