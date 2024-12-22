@@ -6,3 +6,5 @@ namespace: evaluation
 timeoutInSeconds: i-will-be-overwritten
 evaluationId: i-will-be-overwritten
 datasetName: i-will-be-overwritten
+evaluationEngineHost: i-will-be-overwritten
+evaluationEnginePort: i-will-be-overwritten

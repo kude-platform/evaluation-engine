@@ -20,11 +20,15 @@ import io.kubernetes.client.openapi.models.V1PodStatus;
 import io.kubernetes.client.util.Watch;
 import okhttp3.Call;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
@@ -53,13 +57,30 @@ public class KubernetesService implements OrchestrationService {
     @Autowired
     private ApiClient apiClient;
 
+    @Value("${EVALUATION_ENGINE_HOST:#{null}}")
+    private String evaluationEngineHost;
+
+    @Value("${EVALUATION_ENGINE_PORT:8080}")
+    private String evaluationEnginePort;
+
 
     @PostConstruct
-    public void deleteAllTasks() {
+    public void deleteAllTasks() throws IOException {
         Helm.list().call()
                 .stream()
                 .filter(release -> release.getName().startsWith("ddm-akka-"))
                 .forEach(release -> Helm.uninstall(release.getName()).call());
+
+        if (!StringUtils.hasText(evaluationEngineHost)) {
+            evaluationEngineHost = getIpAdress();
+        }
+    }
+
+    private String getIpAdress() throws IOException {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("google.com", 80));
+            return socket.getLocalAddress().getHostAddress();
+        }
     }
 
     public int getNumberOfNodes() throws ApiException {
@@ -84,6 +105,8 @@ public class KubernetesService implements OrchestrationService {
         final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(getName(taskId))
                 .set("name", getName(taskId))
+                .set("evaluationEngineHost", evaluationEngineHost)
+                .set("evaluationEnginePort", evaluationEnginePort)
                 .set("gitUrl", gitUrl)
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
