@@ -20,6 +20,7 @@ import io.kubernetes.client.openapi.ApiException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,8 +57,6 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @Slf4j
 public class EvaluationService {
 
-    static final int NUMBER_OF_THREADS = 5;
-
     final ThreadPoolTaskExecutor taskExecutor;
 
     final EvaluationEventRepository evaluationEventRepository;
@@ -78,13 +77,14 @@ public class EvaluationService {
 
     final BlockingQueue<EvaluationTask> evaluationTaskQueue;
 
-    final List<NotifiableComponent> activeViewComponents;
+    @Qualifier(value = "activeEvaluationViewComponents")
+    final List<NotifiableComponent> activeEvaluationViewComponents;
 
     final Map<String, Future<Result>> evaluationFutures = new HashMap<>();
 
     final Map<String, EvaluationRunnable> evaluationIdsToRunnables = new HashMap<>();
 
-    final List<EvaluationRunnable> evaluationRunnables = new ArrayList<>();
+    final List<Future<?>> activeEvaluationThreads = new ArrayList<>();
 
     private Semaphore evaluationLock;
 
@@ -95,14 +95,15 @@ public class EvaluationService {
     @Transactional
     public void init() throws ApiException {
         this.numberOfNodes = kubernetesService.getNumberOfNodes();
-        this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor()));
+        final int maxNumberOfParallelJobs = calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor());
+
+        this.evaluationLock = new Semaphore(maxNumberOfParallelJobs);
         this.cancelAllEvaluationTasks();
         this.deleteAllPreviousResults();
 
-        for (int i = 0; i < NUMBER_OF_THREADS; i++) {
+        for (int i = 0; i < maxNumberOfParallelJobs; i++) {
             final EvaluationRunnable evaluationRunnable = new EvaluationRunnable();
-            evaluationRunnables.add(evaluationRunnable);
-            taskExecutor.execute(evaluationRunnable);
+            activeEvaluationThreads.add(taskExecutor.submit(evaluationRunnable));
         }
     }
 
@@ -157,6 +158,13 @@ public class EvaluationService {
     public void updateNumberOfParallelJobs(final int newReplicationFactor) {
         if (isNoJobRunning()) {
             this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(newReplicationFactor));
+            this.activeEvaluationThreads.forEach(future -> future.cancel(true));
+            this.activeEvaluationThreads.clear();
+
+            for (int i = 0; i < calculateMaxNumberOfParallelJobs(newReplicationFactor); i++) {
+                final EvaluationRunnable evaluationRunnable = new EvaluationRunnable();
+                activeEvaluationThreads.add(taskExecutor.submit(evaluationRunnable));
+            }
         } else {
             log.error("Cannot update number of parallel jobs while jobs are running");
             throw new IllegalStateException("Cannot update number of parallel jobs while jobs are running");
@@ -347,8 +355,9 @@ public class EvaluationService {
 
         @Override
         public void run() {
+            log.info("Evaluation thread with id {} started", Thread.currentThread().getId());
             try {
-                while (true) {
+                while (!Thread.currentThread().isInterrupted() && !cancelled) {
 
                     EvaluationTask task = evaluationTaskQueue.take();
                     evaluationIdsToRunnables.put(task.taskId(), this);
@@ -413,9 +422,14 @@ public class EvaluationService {
                     }
 
                 }
-            } catch (Exception e) {
+            } catch (final InterruptedException e) {
+                log.info("Evaluation thread with id {} interrupted", Thread.currentThread().getId());
+                cancelled = true;
+            } catch (final Exception e) {
                 log.error("Evaluation failed", e); // TODO: better error handling
             }
+
+            log.info("Evaluation thread with id {} stopped", Thread.currentThread().getId());
         }
 
         private void updateTaskStatus(final EvaluationTask task, final EvaluationStatus evaluationStatus) {
@@ -440,7 +454,7 @@ public class EvaluationService {
     }
 
     public void notifyView() {
-        activeViewComponents.forEach(NotifiableComponent::dataChanged);
+        activeEvaluationViewComponents.forEach(NotifiableComponent::dataChanged);
     }
 
 

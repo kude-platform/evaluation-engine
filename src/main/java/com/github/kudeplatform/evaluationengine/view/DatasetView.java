@@ -18,6 +18,7 @@ import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.Route;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.List;
 
@@ -31,16 +32,17 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
 
     private final DataController dataController;
 
-    final List<NotifiableComponent> activeViewComponents;
+    final List<NotifiableComponent> activeDatasetViewComponents;
 
     private final Grid<Dataset> datasetGrid = new Grid<>();
 
     private final Span lastUpdatedSpan;
 
-    public DatasetView(final FileSystemService fileSystemService, DataController dataController, List<NotifiableComponent> activeViewComponents) {
+    public DatasetView(final FileSystemService fileSystemService, DataController dataController,
+                       @Qualifier(value = "activeDatasetViewComponents") final List<NotifiableComponent> activeDatasetViewComponents) {
         this.fileSystemService = fileSystemService;
         this.dataController = dataController;
-        this.activeViewComponents = activeViewComponents;
+        this.activeDatasetViewComponents = activeDatasetViewComponents;
         final H2 title = new H2("Datasets");
         this.add(title);
 
@@ -73,10 +75,6 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
             });
             return button;
         })).setHeader("Action");
-        datasetGrid.addColumn(new ComponentRenderer<>(item -> {
-            final Span span = new Span();
-            return span;
-        })).setHeader("Synced by Nodes");
         datasetGrid.addThemeVariants(GridVariant.LUMO_ROW_STRIPES);
         this.add(datasetsTitle, datasetGrid);
         this.update();
@@ -86,15 +84,15 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         this.update();
-        synchronized (this.activeViewComponents) {
-            this.activeViewComponents.add(this);
+        synchronized (this.activeDatasetViewComponents) {
+            this.activeDatasetViewComponents.add(this);
         }
     }
 
     @Override
     protected void onDetach(DetachEvent detachEvent) {
-        synchronized (this.activeViewComponents) {
-            this.activeViewComponents.remove(this);
+        synchronized (this.activeDatasetViewComponents) {
+            this.activeDatasetViewComponents.remove(this);
         }
     }
 

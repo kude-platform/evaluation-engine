@@ -8,10 +8,12 @@ import com.github.kudeplatform.evaluationengine.view.NotifiableComponent;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 
@@ -27,21 +29,24 @@ public class DataController {
 
     private final DatasetMapper datasetMapper;
 
-    final List<NotifiableComponent> activeViewComponents;
+    final List<NotifiableComponent> activeDatasetViewComponents;
 
     @Getter
     private final HashMap<String, String> lastUpdatedByNode = new HashMap<>();
 
-    public DataController(final DatasetRepository datasetRepository, final List<NotifiableComponent> activeViewComponents) {
+    public DataController(final DatasetRepository datasetRepository,
+                          @Qualifier(value = "activeDatasetViewComponents") final List<NotifiableComponent> activeDatasetViewComponents) {
         this.datasetRepository = datasetRepository;
-        this.activeViewComponents = activeViewComponents;
+        this.activeDatasetViewComponents = activeDatasetViewComponents;
         this.datasetMapper = new DatasetMapperImpl();
     }
 
 
     @RequestMapping("/datasets")
     public List<Dataset> getDatasets(final HttpServletRequest request) {
-        this.lastUpdatedByNode.put(request.getRemoteAddr(), ZonedDateTime.now().toString());
+        this.lastUpdatedByNode.put(request.getRemoteAddr(), DateTimeFormatter.ofPattern("hh:mm:ss").format(ZonedDateTime.now()));
+        this.activeDatasetViewComponents.forEach(NotifiableComponent::dataChanged);
+
         return datasetRepository.findAll().stream().map(datasetMapper::toDomainObject).toList();
     }
 

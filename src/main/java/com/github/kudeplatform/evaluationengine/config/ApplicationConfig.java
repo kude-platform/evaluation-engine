@@ -67,8 +67,13 @@ public class ApplicationConfig {
         return new EvaluationEventMapperImpl();
     }
 
-    @Bean
-    List<NotifiableComponent> activeViewComponents() {
+    @Bean(name = "activeEvaluationViewComponents")
+    List<NotifiableComponent> activeEvaluationViewComponents() {
+        return new ArrayList<>();
+    }
+
+    @Bean(name = "activeDatasetViewComponents")
+    List<NotifiableComponent> activeDatasetViewComponents() {
         return new ArrayList<>();
     }
 
