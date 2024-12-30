@@ -51,9 +51,13 @@ dependencies {
     implementation 'org.apache.commons:commons-csv:1.12.0'
 
     OperatingSystem os = DefaultNativePlatform.currentOperatingSystem;
+    def arch = System.getProperty("os.arch")
+
     implementation 'com.marcnuri.helm-java:helm-java:0.0.14'
     if (os.isMacOsX()) {
         implementation 'com.marcnuri.helm-java:darwin-amd64:0.0.14'
+    } else if(arch == "amd64"){
+        implementation 'com.marcnuri.helm-java:linux-amd64:0.0.14'
     } else {
         implementation 'com.marcnuri.helm-java:linux-arm64:0.0.14'
     }
