@@ -50,6 +50,8 @@ public class SettingsView extends VerticalLayout {
 
     final TextField replicationFactor;
 
+    final TextField maxJobsPerNode;
+
     final TextField gitUsername;
 
     final PasswordField gitToken;
@@ -67,6 +69,8 @@ public class SettingsView extends VerticalLayout {
     String timeoutInSecondsValue = "";
 
     String replicationFactorValue = "";
+
+    String maxJobsPerNodeValue = "";
 
     String gitUsernameValue = "";
 
@@ -86,6 +90,7 @@ public class SettingsView extends VerticalLayout {
 
         this.timeoutInSeconds = new TextField("Timeout in seconds");
         this.replicationFactor = new TextField("Replication factor");
+        this.maxJobsPerNode = new TextField("Max jobs per node");
         this.gitUsername = new TextField("Git username");
         this.gitToken = new PasswordField("Git token");
         this.saveButton = new Button("Save");
@@ -93,6 +98,7 @@ public class SettingsView extends VerticalLayout {
         final FormLayout formLayout = new FormLayout();
         formLayout.add(timeoutInSeconds);
         formLayout.add(replicationFactor);
+        formLayout.add(maxJobsPerNode);
         formLayout.add(gitUsername);
         formLayout.add(gitToken);
         formLayout.add(saveButton);
@@ -254,6 +260,12 @@ public class SettingsView extends VerticalLayout {
 
         this.replicationFactor.setValue(String.valueOf(settingsService.getReplicationFactor()));
 
+        final Binder<String> maxJobsPerNodeBinder = new Binder<>(String.class);
+        maxJobsPerNodeBinder.forField(maxJobsPerNode)
+                .withValidator(new RegexpValidator("Only numbers are allowed", "^[0-9]*$"))
+                .bind(this::getMaxJobsPerNodeValue, this::setMaxJobsPerNodeValue);
+        binders.add(maxJobsPerNodeBinder);
+
         final Binder<String> gitUsernameBinder = new Binder<>(String.class);
         gitUsernameBinder.forField(gitUsername)
                 .bind(this::getGitUsernameValue, this::setGitUsernameValue);
@@ -272,17 +284,20 @@ public class SettingsView extends VerticalLayout {
             if (this.areBindersValid()) {
                 timeoutInSecondsBinder.writeBeanIfValid(timeoutInSecondsValue);
                 replicationFactorBinder.writeBeanIfValid(replicationFactorValue);
+                maxJobsPerNodeBinder.writeBeanIfValid(maxJobsPerNodeValue);
                 gitUsernameBinder.writeBeanIfValid(gitUsernameValue);
                 gitTokenBinder.writeBeanIfValid(gitTokenValue);
 
                 settingsService.setTimeoutInSeconds(timeoutInSecondsValue);
                 try {
-                    evaluationService.updateNumberOfParallelJobs(Integer.parseInt(replicationFactorValue));
+                    evaluationService.updateNumberOfParallelJobs(Integer.parseInt(replicationFactorValue), Integer.parseInt(maxJobsPerNodeValue));
                     settingsService.setReplicationFactor(replicationFactorValue);
+                    settingsService.setMaxJobsPerNode(maxJobsPerNodeValue);
                 } catch (IllegalStateException e) {
                     Notification.show("Could not update replication factor because evaluations are currently active", 5000,
                             Notification.Position.MIDDLE);
                     this.replicationFactor.setValue(String.valueOf(settingsService.getReplicationFactor()));
+                    this.maxJobsPerNode.setValue(String.valueOf(settingsService.getMaxJobsPerNode()));
                 }
                 settingsService.setGitUsername(gitUsernameValue);
                 settingsService.setGitToken(gitTokenValue);
@@ -337,6 +352,14 @@ public class SettingsView extends VerticalLayout {
 
     private String getReplicationFactorValue(String bean) {
         return this.replicationFactorValue;
+    }
+
+    private void setMaxJobsPerNodeValue(String bean, String fieldValue) {
+        this.maxJobsPerNodeValue = fieldValue;
+    }
+
+    private String getMaxJobsPerNodeValue(String bean) {
+        return this.maxJobsPerNodeValue;
     }
 
     private void setGitUsernameValue(String bean, String fieldValue) {

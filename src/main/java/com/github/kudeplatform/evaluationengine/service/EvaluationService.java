@@ -95,7 +95,8 @@ public class EvaluationService {
     @Transactional
     public void init() throws ApiException {
         this.numberOfNodes = kubernetesService.getNumberOfNodes();
-        final int maxNumberOfParallelJobs = calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor());
+        final int maxNumberOfParallelJobs = calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor(),
+                this.settingsService.getMaxJobsPerNode());
 
         this.evaluationLock = new Semaphore(maxNumberOfParallelJobs);
         this.cancelAllEvaluationTasks();
@@ -152,16 +153,17 @@ public class EvaluationService {
     }
 
     public boolean isNoJobRunning() {
-        return this.evaluationLock.availablePermits() == calculateMaxNumberOfParallelJobs(this.settingsService.getReplicationFactor());
+        return this.evaluationLock.availablePermits() == calculateMaxNumberOfParallelJobs(
+                this.settingsService.getReplicationFactor(), this.settingsService.getMaxJobsPerNode());
     }
 
-    public void updateNumberOfParallelJobs(final int newReplicationFactor) {
+    public void updateNumberOfParallelJobs(final int newReplicationFactor, final int newMaxJobsPerNode) {
         if (isNoJobRunning()) {
-            this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(newReplicationFactor));
+            this.evaluationLock = new Semaphore(calculateMaxNumberOfParallelJobs(newReplicationFactor, newMaxJobsPerNode));
             this.activeEvaluationThreads.forEach(future -> future.cancel(true));
             this.activeEvaluationThreads.clear();
 
-            for (int i = 0; i < calculateMaxNumberOfParallelJobs(newReplicationFactor); i++) {
+            for (int i = 0; i < calculateMaxNumberOfParallelJobs(newReplicationFactor, newMaxJobsPerNode); i++) {
                 final EvaluationRunnable evaluationRunnable = new EvaluationRunnable();
                 activeEvaluationThreads.add(taskExecutor.submit(evaluationRunnable));
             }
@@ -307,8 +309,8 @@ public class EvaluationService {
         fileSystemService.saveToCsvFile(evaluationResultWithEventsList);
     }
 
-    private int calculateMaxNumberOfParallelJobs(final int replicationFactor) {
-        return this.numberOfNodes / replicationFactor;
+    private int calculateMaxNumberOfParallelJobs(final int replicationFactor, final int maxJobsPerNode) {
+        return (this.numberOfNodes * maxJobsPerNode) / replicationFactor;
     }
 
     public boolean areResultsCorrect(final String results) {
@@ -447,9 +449,8 @@ public class EvaluationService {
 
     private void deploy(EvaluationTask task) {
         if (task instanceof GitEvaluationTask gitEvaluationTask) {
-            kubernetesService.deployTask(task.taskId(), gitEvaluationTask.repositoryUrl(),
-                    task.instanceStartCommands(), settingsService.getReplicationFactor(),
-                    settingsService.getTimeoutInSeconds(), gitEvaluationTask.gitBranch(), gitEvaluationTask.datasetName());
+            kubernetesService.deployTask(gitEvaluationTask, settingsService.getReplicationFactor(),
+                    settingsService.getTimeoutInSeconds(), settingsService.getMaxJobsPerNode() > 1);
         }
     }
 

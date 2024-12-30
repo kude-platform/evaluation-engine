@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -75,6 +76,17 @@ public class ApplicationConfig {
     @Bean(name = "activeDatasetViewComponents")
     List<NotifiableComponent> activeDatasetViewComponents() {
         return new ArrayList<>();
+    }
+
+    @Bean
+    ThreadPoolTaskExecutor taskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(12);
+        executor.setMaxPoolSize(36);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("EvaluationTaskExecutor-");
+        executor.initialize();
+        return executor;
     }
 
 }

@@ -22,6 +22,8 @@ public class SettingsService {
 
     private static final String KEY_REPLICATION_FACTOR = "replicationFactor";
 
+    private static final String KEY_MAX_JOBS_PER_NODE = "maxJobsPerNode";
+
     private static final String KEY_GIT_USERNAME = "gitUsername";
 
     private static final String KEY_GIT_TOKEN = "gitToken";
@@ -56,6 +58,14 @@ public class SettingsService {
 
     public void setReplicationFactor(final String replicationFactor) {
         setSetting(KEY_REPLICATION_FACTOR, replicationFactor);
+    }
+
+    public int getMaxJobsPerNode() {
+        return Integer.parseInt(getSetting(KEY_MAX_JOBS_PER_NODE).orElse("1"));
+    }
+
+    public void setMaxJobsPerNode(final String maxJobsPerNode) {
+        setSetting(KEY_MAX_JOBS_PER_NODE, maxJobsPerNode);
     }
 
     public String getGitUsername() {

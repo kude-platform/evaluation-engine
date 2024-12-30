@@ -34,7 +34,11 @@ spec:
     spec:
       subdomain: {{ $serviceName }}
       restartPolicy: Never
+{{- if .Values.multipleJobsPerNode }}
+      hostNetwork: false
+{{- else }}
       hostNetwork: true
+{{- end }}
       dnsPolicy: ClusterFirstWithHostNet
       volumes:
         - name: data
@@ -102,6 +106,7 @@ spec:
               memory: "2548Mi"
               cpu: "2"
               #memory: "512Mi"
+{{- if not .Values.multipleJobsPerNode }}
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -112,3 +117,4 @@ spec:
                     values:
                       - {{ .Values.name }}
               topologyKey: "kubernetes.io/hostname"
+{{- end }}

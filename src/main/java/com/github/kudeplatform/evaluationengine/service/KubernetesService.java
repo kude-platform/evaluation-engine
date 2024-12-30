@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.service;
 
+import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.google.gson.reflect.TypeToken;
 import com.marcnuri.helm.Helm;
 import com.marcnuri.helm.InstallCommand;
@@ -7,8 +8,6 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.apis.CustomObjectsApi;
-import io.kubernetes.client.openapi.apis.EventsV1Api;
 import io.kubernetes.client.openapi.models.V1ContainerState;
 import io.kubernetes.client.openapi.models.V1ContainerStateWaiting;
 import io.kubernetes.client.openapi.models.V1ContainerStatus;
@@ -47,12 +46,6 @@ public class KubernetesService implements OrchestrationService {
 
     @Autowired
     private BatchV1Api batchV1Api;
-
-    @Autowired
-    private CustomObjectsApi customObjectsApi;
-
-    @Autowired
-    private EventsV1Api eventsV1Api;
 
     @Autowired
     private ApiClient apiClient;
@@ -101,20 +94,22 @@ public class KubernetesService implements OrchestrationService {
         return job.getStatus();
     }
 
-    public void deployTask(String taskId, String gitUrl, List<String> instanceStartCommands, int numberOfReplicas, int timeoutInSeconds, String gitBranch, String datasetName) {
+    public void deployTask(final GitEvaluationTask gitEvaluationTask, int numberOfReplicas, int timeoutInSeconds,
+                           final boolean multipleJobsPerNode) {
         final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
-                .install().withName(getName(taskId))
-                .set("name", getName(taskId))
+                .install().withName(getName(gitEvaluationTask.taskId()))
+                .set("name", getName(gitEvaluationTask.taskId()))
                 .set("evaluationEngineHost", evaluationEngineHost)
                 .set("evaluationEnginePort", evaluationEnginePort)
-                .set("gitUrl", gitUrl)
+                .set("multipleJobsPerNode", multipleJobsPerNode)
+                .set("gitUrl", gitEvaluationTask.repositoryUrl())
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
-                .set("evaluationId", taskId)
-                .set("gitBranch", gitBranch)
-                .set("datasetName", datasetName);
+                .set("evaluationId", gitEvaluationTask.taskId())
+                .set("gitBranch", gitEvaluationTask.gitBranch())
+                .set("datasetName", gitEvaluationTask.datasetName());
 
-        addStartCommands(installCommand, instanceStartCommands);
+        addStartCommands(installCommand, gitEvaluationTask.instanceStartCommands());
         installCommand.call();
     }
 
