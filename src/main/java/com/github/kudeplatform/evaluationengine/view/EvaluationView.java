@@ -63,7 +63,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
     private final TextField gitRepositoryUrl = new TextField("GIT Repository URL");
 
-    private final TextField gitBranch = new TextField("GIT Branch", "main", "");
+    private final TextField gitBranch = new TextField("GIT Branch", "", "");
 
     private final TextField name = new TextField("Name");
 
@@ -110,8 +110,6 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 "Example: https://token@github.com/username/repository");
 
         horizontalLayout.add(gitBranch);
-        gitBranch.setRequiredIndicatorVisible(true);
-        gitBranch.setErrorMessage("This field is required");
 
         horizontalLayout.add(datasetName);
         datasetName.setRequiredIndicatorVisible(true);
@@ -131,7 +129,6 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         final Binder<GitEvaluationTask> gitBranchBinder = new Binder<>(GitEvaluationTask.class);
         gitBranchBinder.forField(gitBranch)
-                .withValidator(new StringLengthValidator("GIT Branch URL must contain at least 1 character", 1, null))
                 .bind(GitEvaluationTask::gitBranch, GitEvaluationTask::setGitBranch);
 
         final Binder<GitEvaluationTask> nameBinder = new Binder<>(GitEvaluationTask.class);
