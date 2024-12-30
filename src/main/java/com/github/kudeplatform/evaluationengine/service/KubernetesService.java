@@ -17,6 +17,7 @@ import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
 import io.kubernetes.client.util.Watch;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,6 +40,7 @@ import java.util.function.Function;
  * @author timo.buechert
  */
 @Service
+@Slf4j
 public class KubernetesService implements OrchestrationService {
 
     @Autowired
@@ -163,6 +165,7 @@ public class KubernetesService implements OrchestrationService {
         try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
 
             for (Watch.Response<V1Job> item : watch) {
+                log.info("Job status: {}", item.object.getStatus());
                 final KubernetesStatus status = evaluateJobStatus(item.object, replicas);
                 if (jobStatusEvaluator.apply(status)) {
                     return status;
