@@ -266,6 +266,8 @@ public class SettingsView extends VerticalLayout {
                 .bind(this::getMaxJobsPerNodeValue, this::setMaxJobsPerNodeValue);
         binders.add(maxJobsPerNodeBinder);
 
+        this.maxJobsPerNode.setValue(String.valueOf(settingsService.getMaxJobsPerNode()));
+
         final Binder<String> gitUsernameBinder = new Binder<>(String.class);
         gitUsernameBinder.forField(gitUsername)
                 .bind(this::getGitUsernameValue, this::setGitUsernameValue);

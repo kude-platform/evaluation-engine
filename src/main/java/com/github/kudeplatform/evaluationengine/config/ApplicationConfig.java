@@ -10,6 +10,7 @@ import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.CustomObjectsApi;
 import io.kubernetes.client.openapi.apis.EventsV1Api;
 import io.kubernetes.client.util.Config;
+import okhttp3.Protocol;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.annotation.EnableRetry;
@@ -17,10 +18,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author timo.buechert
@@ -34,6 +38,13 @@ public class ApplicationConfig {
     public ApiClient kubernetesClient() throws IOException {
         final ApiClient client = Config.defaultClient();
         client.setConnectTimeout(100_000);
+        client.setHttpClient(client
+                .getHttpClient()
+                .newBuilder()
+                .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
+                .readTimeout(Duration.ZERO)
+                .pingInterval(1, TimeUnit.MINUTES)
+                .build());
         io.kubernetes.client.openapi.Configuration.setDefaultApiClient(client);
         return client;
     }
