@@ -106,10 +106,14 @@ public class KubernetesService implements OrchestrationService {
                 .set("replicaCount", numberOfReplicas)
                 .set("timeoutInSeconds", timeoutInSeconds)
                 .set("evaluationId", gitEvaluationTask.taskId())
-                .set("gitBranch", gitEvaluationTask.gitBranch())
                 .set("datasetName", gitEvaluationTask.datasetName());
 
         addStartCommands(installCommand, gitEvaluationTask.instanceStartCommands());
+
+        if (StringUtils.hasText(gitEvaluationTask.gitBranch())) {
+            installCommand.set("gitBranch", gitEvaluationTask.gitBranch());
+        }
+
         installCommand.call();
     }
 

@@ -46,7 +46,7 @@ spec:
             path: /data/{{ .Values.datasetName }}
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.3.2'
+          image: 'registry.local/akka-tpch-jdk11:0.3.5'
           ports:
             - containerPort: 7877
               name: master-port
@@ -64,8 +64,10 @@ spec:
               value: {{ $serviceName }}
             - name: "GIT_URL"
               value: {{ .Values.gitUrl }}
+{{- if .Values.gitBranch }}
             - name: "GIT_BRANCH"
               value: {{ .Values.gitBranch }}
+{{- end }}
             - name: "OFFLINE_MODE"
               value: "false"
             - name: "ADDITIONAL_MAVEN_ARGS"
@@ -76,6 +78,8 @@ spec:
               value: "http://{{ .Values.evaluationEngineHost }}:{{ .Values.evaluationEnginePort }}/api/fileIngestion/logs"
             - name: "EVENT_INGESTION_ENDPOINT"
               value: "http://{{ .Values.evaluationEngineHost }}:{{ .Values.evaluationEnginePort }}/ingest/event"
+            - name: "EVALUATION_SERVICE_ALL_PODS_READY_TO_RUN_ENDPOINT"
+              value: "http://{{ .Values.evaluationEngineHost }}:{{ .Values.evaluationEnginePort }}/api/evaluation/allPodsReadyToRun"
             - name: "LOG_ANALYZER_ENDPOINT"
               value: "http://localhost:8089/ingest/logfiles"
             - name: "APPLY_PATCH"

@@ -112,7 +112,7 @@ public class EvaluationService {
     public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         if (!CollectionUtils.isEmpty(ingestedEvent.getErrorObjects())) {
             for (final Error error : ingestedEvent.getErrorObjects()) {
-                handleError(ingestedEvent, error.getCategory());
+                handleEvent(ingestedEvent, error.getCategory());
             }
             final boolean fatal = ingestedEvent.getErrorObjects().stream().anyMatch(Error::isFatal);
             if (fatal) {
@@ -125,16 +125,16 @@ public class EvaluationService {
             }
         } else if (!CollectionUtils.isEmpty(ingestedEvent.getErrors())) {
             for (final String error : ingestedEvent.getErrors()) {
-                handleError(ingestedEvent, error);
+                handleEvent(ingestedEvent, error);
             }
         }
 
         this.notifyView();
     }
 
-    private void handleError(final IngestedEvent ingestedEvent, final String error) {
+    private void handleEvent(final IngestedEvent ingestedEvent, final String event) {
         final List<EvaluationEventEntity> byTaskIdAndCategory =
-                evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), error);
+                evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), event);
 
         if (!byTaskIdAndCategory.isEmpty()) {
             final EvaluationEventEntity evaluationEventEntity = byTaskIdAndCategory.get(0);
@@ -146,10 +146,21 @@ public class EvaluationService {
                     ZonedDateTime.now(),
                     EvaluationStatus.RUNNING,
                     "", ingestedEvent.getIndex(),
-                    error);
+                    event);
 
             evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
         }
+
+        if (event.equals("BUILD_COMPLETED")) {
+            final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
+            resultEntity.getPodIndicesReadyToRun().add(Integer.parseInt(ingestedEvent.getIndex()));
+            evaluationResultRepository.save(resultEntity);
+        }
+    }
+
+    public boolean areAllPodsReadyToRun(final String taskId) {
+        final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        return resultEntity.getPodIndicesReadyToRun().size() == settingsService.getReplicationFactor();
     }
 
     public boolean isNoJobRunning() {
