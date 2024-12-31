@@ -153,6 +153,17 @@ public class KubernetesService implements OrchestrationService {
         return waitForJobStatus(taskId, replicas, KubernetesStatus::isFinal);
     }
 
+    public KubernetesStatus getJobStatus(final String taskId, final int replicas) throws ApiException {
+        final V1Job job = batchV1Api
+                .listNamespacedJob("evaluation")
+                .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId))
+                .execute()
+                .getItems()
+                .get(0);
+
+        return evaluateJobStatus(job, replicas);
+    }
+
     public KubernetesStatus waitForJobStatus(final String taskId, final int replicas, final Function<KubernetesStatus, Boolean> jobStatusEvaluator) throws ApiException {
         final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
                 .listNamespacedJob("evaluation")

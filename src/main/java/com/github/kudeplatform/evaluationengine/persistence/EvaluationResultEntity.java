@@ -3,6 +3,7 @@ package com.github.kudeplatform.evaluationengine.persistence;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import lombok.AllArgsConstructor;
@@ -36,8 +37,11 @@ public class EvaluationResultEntity {
 
     private boolean resultsCorrect;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<Integer> podIndicesReadyToRun;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    private List<Integer> podIndicesCompleted;
 
     @Lob
     private String message;

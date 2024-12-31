@@ -2,6 +2,7 @@ package com.github.kudeplatform.evaluationengine.service;
 
 import com.github.kudeplatform.evaluationengine.api.Error;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
+import com.github.kudeplatform.evaluationengine.async.EvaluationFinishedEvaluator;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
@@ -76,6 +77,8 @@ public class EvaluationService {
     final FileSystemService fileSystemService;
 
     final BlockingQueue<EvaluationTask> evaluationTaskQueue;
+
+    final EvaluationFinishedEvaluator evaluationFinishedEvaluator;
 
     @Qualifier(value = "activeEvaluationViewComponents")
     final List<NotifiableComponent> activeEvaluationViewComponents;
@@ -155,6 +158,13 @@ public class EvaluationService {
             final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
             resultEntity.getPodIndicesReadyToRun().add(Integer.parseInt(ingestedEvent.getIndex()));
             evaluationResultRepository.save(resultEntity);
+        }
+
+        if (event.equals("JOB_COMPLETED")) {
+            final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
+            resultEntity.getPodIndicesCompleted().add(Integer.parseInt(ingestedEvent.getIndex()));
+            evaluationResultRepository.save(resultEntity);
+            evaluationFinishedEvaluator.notifyEvaluationFinished();
         }
     }
 

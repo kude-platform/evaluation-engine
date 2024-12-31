@@ -5,10 +5,13 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
+import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
+import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
 import com.github.kudeplatform.evaluationengine.service.KubernetesStatus;
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.google.gson.Gson;
+import io.kubernetes.client.openapi.ApiException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -35,26 +38,58 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
     @Autowired
     SettingsService settingsService;
 
+    @Autowired
+    EvaluationResultRepository evaluationResultRepository;
+
+
     @Override
     public CompletableFuture<Result> evaluate(final EvaluationTask evaluationTask,
                                               final Consumer<EvaluationEvent> updateCallback) {
         return CompletableFuture.supplyAsync(() -> {
             final List<EvaluationEvent> results = new ArrayList<>();
-            KubernetesStatus jobStatus;
-            try {
-                jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId(), settingsService.getReplicationFactor());
-            } catch (Exception e) {
-                final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        EvaluationStatus.FAILED, e.getMessage(), "", "");
-                results.add(finalErrorResult);
-                updateCallback.accept(finalErrorResult);
-                return new SingleEvaluationResult(evaluationTask,
-                        EvaluationStatus.FAILED,
-                        results);
-            }
+            KubernetesStatus jobStatus = KubernetesStatus.FAILED;
 
-            if (jobStatus.isFailed()) {
-                throw new RuntimeException("Job failed.");
+            while (!Thread.currentThread().isInterrupted()) {
+                final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(evaluationTask.taskId()).orElseThrow();
+
+                try {
+                    if (evaluationResultEntity.getPodIndicesCompleted().size() == settingsService.getReplicationFactor()) {
+                        jobStatus = kubernetesService.waitForJobCompletion(evaluationTask.taskId(), settingsService.getReplicationFactor());
+                    } else {
+                        jobStatus = kubernetesService.getJobStatus(evaluationTask.taskId(), settingsService.getReplicationFactor());
+                    }
+                } catch (final ApiException e) {
+                    final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
+                            EvaluationStatus.FAILED, e.getMessage(), "", "");
+                    results.add(finalErrorResult);
+                    updateCallback.accept(finalErrorResult);
+                    return new SingleEvaluationResult(evaluationTask,
+                            EvaluationStatus.FAILED,
+                            results);
+                }
+
+
+                if (jobStatus.isFailed()) {
+                    throw new RuntimeException("Job failed.");
+                }
+
+                final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(jobStatus);
+
+                if (evaluationStatus.isFinal()) {
+                    final EvaluationEvent evaluationEvent = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
+                            evaluationStatus, "Evaluation finished.", "", "");
+                    results.add(evaluationEvent);
+                    updateCallback.accept(evaluationEvent);
+                    break;
+                }
+
+                synchronized (this) {
+                    try {
+                        wait(10_000);
+                    } catch (final InterruptedException e) {
+                        throw new RuntimeException("Evaluation was interrupted.");
+                    }
+                }
             }
 
             final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(jobStatus);
@@ -67,6 +102,12 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                     evaluationStatus,
                     results);
         });
+    }
+
+    public void notifyEvaluationFinished() {
+        synchronized (this) {
+            notifyAll();
+        }
     }
 
 }
