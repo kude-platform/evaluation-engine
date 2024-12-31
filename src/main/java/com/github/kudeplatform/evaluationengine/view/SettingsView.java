@@ -56,6 +56,16 @@ public class SettingsView extends VerticalLayout {
 
     final PasswordField gitToken;
 
+    final TextField evaluationImage;
+
+    final TextField cpuRequest;
+
+    final TextField cpuLimit;
+
+    final TextField memoryRequest;
+
+    final TextField memoryLimit;
+
     final Button saveButton;
 
 
@@ -76,6 +86,16 @@ public class SettingsView extends VerticalLayout {
 
     String gitTokenValue = "";
 
+    String evaluationImageValue = "";
+
+    String cpuRequestValue = "";
+
+    String cpuLimitValue = "";
+
+    String memoryRequestValue = "";
+
+    String memoryLimitValue = "";
+
 
     List<Binder> binders = new ArrayList<>();
 
@@ -93,6 +113,11 @@ public class SettingsView extends VerticalLayout {
         this.maxJobsPerNode = new TextField("Max jobs per node");
         this.gitUsername = new TextField("Git username");
         this.gitToken = new PasswordField("Git token");
+        this.evaluationImage = new TextField("Evaluation image");
+        this.cpuRequest = new TextField("CPU request");
+        this.cpuLimit = new TextField("CPU limit");
+        this.memoryRequest = new TextField("Memory request");
+        this.memoryLimit = new TextField("Memory limit");
         this.saveButton = new Button("Save");
 
         final FormLayout formLayout = new FormLayout();
@@ -101,6 +126,11 @@ public class SettingsView extends VerticalLayout {
         formLayout.add(maxJobsPerNode);
         formLayout.add(gitUsername);
         formLayout.add(gitToken);
+        formLayout.add(evaluationImage);
+        formLayout.add(cpuRequest);
+        formLayout.add(cpuLimit);
+        formLayout.add(memoryRequest);
+        formLayout.add(memoryLimit);
         formLayout.add(saveButton);
         this.add(formLayout);
 
@@ -282,6 +312,41 @@ public class SettingsView extends VerticalLayout {
 
         this.gitToken.setValue(settingsService.getGitToken());
 
+        final Binder<String> evaluationImageBinder = new Binder<>(String.class);
+        evaluationImageBinder.forField(evaluationImage)
+                .bind(this::getEvaluationImageValue, this::setEvaluationImageValue);
+        binders.add(evaluationImageBinder);
+
+        this.evaluationImage.setValue(settingsService.getEvaluationImage());
+
+        final Binder<String> cpuRequestBinder = new Binder<>(String.class);
+        cpuRequestBinder.forField(cpuRequest)
+                .bind(this::getCpuRequestValue, this::setCpuRequestValue);
+        binders.add(cpuRequestBinder);
+
+        this.cpuRequest.setValue(settingsService.getCpuRequest());
+
+        final Binder<String> cpuLimitBinder = new Binder<>(String.class);
+        cpuLimitBinder.forField(cpuLimit)
+                .bind(this::getCpuLimitValue, this::setCpuLimitValue);
+        binders.add(cpuLimitBinder);
+
+        this.cpuLimit.setValue(settingsService.getCpuLimit());
+
+        final Binder<String> memoryRequestBinder = new Binder<>(String.class);
+        memoryRequestBinder.forField(memoryRequest)
+                .bind(this::getMemoryRequestValue, this::setMemoryRequestValue);
+        binders.add(memoryRequestBinder);
+
+        this.memoryRequest.setValue(settingsService.getMemoryRequest());
+
+        final Binder<String> memoryLimitBinder = new Binder<>(String.class);
+        memoryLimitBinder.forField(memoryLimit)
+                .bind(this::getMemoryLimitValue, this::setMemoryLimitValue);
+        binders.add(memoryLimitBinder);
+
+        this.memoryLimit.setValue(settingsService.getMemoryLimit());
+
         this.saveButton.addClickListener(event -> {
             if (this.areBindersValid()) {
                 timeoutInSecondsBinder.writeBeanIfValid(timeoutInSecondsValue);
@@ -289,6 +354,11 @@ public class SettingsView extends VerticalLayout {
                 maxJobsPerNodeBinder.writeBeanIfValid(maxJobsPerNodeValue);
                 gitUsernameBinder.writeBeanIfValid(gitUsernameValue);
                 gitTokenBinder.writeBeanIfValid(gitTokenValue);
+                evaluationImageBinder.writeBeanIfValid(evaluationImageValue);
+                cpuRequestBinder.writeBeanIfValid(cpuRequestValue);
+                cpuLimitBinder.writeBeanIfValid(cpuLimitValue);
+                memoryRequestBinder.writeBeanIfValid(memoryRequestValue);
+                memoryLimitBinder.writeBeanIfValid(memoryLimitValue);
 
                 settingsService.setTimeoutInSeconds(timeoutInSecondsValue);
                 try {
@@ -303,6 +373,11 @@ public class SettingsView extends VerticalLayout {
                 }
                 settingsService.setGitUsername(gitUsernameValue);
                 settingsService.setGitToken(gitTokenValue);
+                settingsService.setEvaluationImage(evaluationImageValue);
+                settingsService.setCpuRequest(cpuRequestValue);
+                settingsService.setCpuLimit(cpuLimitValue);
+                settingsService.setMemoryRequest(memoryRequestValue);
+                settingsService.setMemoryLimit(memoryLimitValue);
 
                 Notification.show("Saved settings", 5000, Notification.Position.TOP_CENTER);
             }
@@ -378,6 +453,46 @@ public class SettingsView extends VerticalLayout {
 
     private String getGitTokenValue(String bean) {
         return this.gitTokenValue;
+    }
+
+    private void setEvaluationImageValue(String bean, String fieldValue) {
+        this.evaluationImageValue = fieldValue;
+    }
+
+    private String getEvaluationImageValue(String bean) {
+        return this.evaluationImageValue;
+    }
+
+    private void setCpuRequestValue(String bean, String fieldValue) {
+        this.cpuRequestValue = fieldValue;
+    }
+
+    private String getCpuRequestValue(String bean) {
+        return this.cpuRequestValue;
+    }
+
+    private void setCpuLimitValue(String bean, String fieldValue) {
+        this.cpuLimitValue = fieldValue;
+    }
+
+    private String getCpuLimitValue(String bean) {
+        return this.cpuLimitValue;
+    }
+
+    private void setMemoryRequestValue(String bean, String fieldValue) {
+        this.memoryRequestValue = fieldValue;
+    }
+
+    private String getMemoryRequestValue(String bean) {
+        return this.memoryRequestValue;
+    }
+
+    private void setMemoryLimitValue(String bean, String fieldValue) {
+        this.memoryLimitValue = fieldValue;
+    }
+
+    private String getMemoryLimitValue(String bean) {
+        return this.memoryLimitValue;
     }
 
 }

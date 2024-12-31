@@ -460,8 +460,7 @@ public class EvaluationService {
 
     private void deploy(EvaluationTask task) {
         if (task instanceof GitEvaluationTask gitEvaluationTask) {
-            kubernetesService.deployTask(gitEvaluationTask, settingsService.getReplicationFactor(),
-                    settingsService.getTimeoutInSeconds(), settingsService.getMaxJobsPerNode() > 1);
+            kubernetesService.deployTask(gitEvaluationTask, settingsService, settingsService.getMaxJobsPerNode() > 1);
         }
     }
 

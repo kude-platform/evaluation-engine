@@ -28,6 +28,16 @@ public class SettingsService {
 
     private static final String KEY_GIT_TOKEN = "gitToken";
 
+    private static final String KEY_EVALUATION_IMAGE = "evaluationImage";
+
+    private static final String KEY_CPU_REQUEST = "cpuRequest";
+
+    private static final String KEY_CPU_LIMIT = "cpuLimit";
+
+    private static final String KEY_MEMORY_REQUEST = "memoryRequest";
+
+    private static final String KEY_MEMORY_LIMIT = "memoryLimit";
+
     private static final String KEY_EXAMPLE_SOLUTION = "exampleSolution";
 
     private final SettingsRepository settingsRepository;
@@ -90,6 +100,46 @@ public class SettingsService {
 
     public void setExpectedSolution(final String sampleSolution) {
         setSetting(KEY_EXAMPLE_SOLUTION, sampleSolution);
+    }
+
+    public String getEvaluationImage() {
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.3.6");
+    }
+
+    public void setEvaluationImage(final String evaluationImage) {
+        setSetting(KEY_EVALUATION_IMAGE, evaluationImage);
+    }
+
+    public String getCpuRequest() {
+        return getSetting(KEY_CPU_REQUEST).orElse("3");
+    }
+
+    public void setCpuRequest(final String cpuRequest) {
+        setSetting(KEY_CPU_REQUEST, cpuRequest);
+    }
+
+    public String getCpuLimit() {
+        return getSetting(KEY_CPU_LIMIT).orElse("3");
+    }
+
+    public void setCpuLimit(final String cpuLimit) {
+        setSetting(KEY_CPU_LIMIT, cpuLimit);
+    }
+
+    public String getMemoryRequest() {
+        return getSetting(KEY_MEMORY_REQUEST).orElse("2048Mi");
+    }
+
+    public void setMemoryRequest(final String memoryRequest) {
+        setSetting(KEY_MEMORY_REQUEST, memoryRequest);
+    }
+
+    public String getMemoryLimit() {
+        return getSetting(KEY_MEMORY_LIMIT).orElse("2548Mi");
+    }
+
+    public void setMemoryLimit(final String memoryLimit) {
+        setSetting(KEY_MEMORY_LIMIT, memoryLimit);
     }
 
     public Optional<String> getSetting(final String key) {

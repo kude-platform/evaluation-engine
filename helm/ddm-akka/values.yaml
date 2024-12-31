@@ -7,4 +7,9 @@ evaluationId: i-will-be-overwritten
 datasetName: i-will-be-overwritten
 evaluationEngineHost: i-will-be-overwritten
 evaluationEnginePort: i-will-be-overwritten
-multipleJobsPerNode: false#
+multipleJobsPerNode: false
+evaluationImage: i-will-be-overwritten
+memoryRequest: i-will-be-overwritten
+cpuRequest: i-will-be-overwritten
+memoryLimit: i-will-be-overwritten
+cpuLimit: i-will-be-overwritten

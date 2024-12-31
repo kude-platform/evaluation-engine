@@ -48,7 +48,7 @@ spec:
         role: worker
       containers:
         - name: 'ddm-akka'
-          image: 'registry.local/akka-tpch-jdk11:0.3.5'
+          image: {{ .Values.evaluationImage }}
           ports:
             - containerPort: 7877
               name: master-port
@@ -106,12 +106,11 @@ spec:
           resources:
             requests:
               #memory: "2048Mi"
-              memory: "2048Mi"
-              cpu: "3"
+              memory: {{ .Values.memoryRequest }}
+              cpu: {{ .Values.cpuRequest }}
             limits:
-              memory: "2548Mi"
-              cpu: "3"
-              #memory: "512Mi"
+              memory: {{ .Values.memoryLimit }}
+              cpu: {{ .Values.cpuLimit }}
 {{- if not .Values.multipleJobsPerNode }}
       affinity:
         podAntiAffinity:

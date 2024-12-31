@@ -43,6 +43,8 @@ import java.util.function.Function;
 @Slf4j
 public class KubernetesService implements OrchestrationService {
 
+    private static final int NODES_RESERVED_FOR_SYSTEM = 1;
+
     @Autowired
     private CoreV1Api coreV1Api;
 
@@ -81,7 +83,7 @@ public class KubernetesService implements OrchestrationService {
     public int getNumberOfNodes() throws ApiException {
         //return 12;
         //TODO: this currently fails due to https://github.com/kubernetes-client/java/issues/3319
-        return coreV1Api.listNode().execute().getItems().size();
+        return coreV1Api.listNode().execute().getItems().size() - NODES_RESERVED_FOR_SYSTEM;
     }
 
     public V1JobStatus getJobStatus(String taskId) throws ApiException, OrchestrationServiceException {
@@ -96,7 +98,7 @@ public class KubernetesService implements OrchestrationService {
         return job.getStatus();
     }
 
-    public void deployTask(final GitEvaluationTask gitEvaluationTask, int numberOfReplicas, int timeoutInSeconds,
+    public void deployTask(final GitEvaluationTask gitEvaluationTask, final SettingsService settingsService,
                            final boolean multipleJobsPerNode) {
         final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(getName(gitEvaluationTask.taskId()))
@@ -105,8 +107,13 @@ public class KubernetesService implements OrchestrationService {
                 .set("evaluationEnginePort", evaluationEnginePort)
                 .set("multipleJobsPerNode", multipleJobsPerNode)
                 .set("gitUrl", gitEvaluationTask.repositoryUrl())
-                .set("replicaCount", numberOfReplicas)
-                .set("timeoutInSeconds", timeoutInSeconds)
+                .set("replicaCount", settingsService.getReplicationFactor())
+                .set("timeoutInSeconds", settingsService.getTimeoutInSeconds())
+                .set("evaluationImage", settingsService.getEvaluationImage())
+                .set("cpuRequest", settingsService.getCpuRequest())
+                .set("cpuLimit", settingsService.getCpuLimit())
+                .set("memoryRequest", settingsService.getMemoryRequest())
+                .set("memoryLimit", settingsService.getMemoryLimit())
                 .set("evaluationId", gitEvaluationTask.taskId())
                 .set("datasetName", gitEvaluationTask.datasetName());
 
