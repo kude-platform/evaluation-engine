@@ -44,6 +44,8 @@ spec:
         - name: data
           hostPath:
             path: /data/{{ .Values.datasetName }}
+      nodeSelector:
+        role: worker
       containers:
         - name: 'ddm-akka'
           image: 'registry.local/akka-tpch-jdk11:0.3.5'
