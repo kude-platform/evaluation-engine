@@ -8,14 +8,7 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.V1ContainerState;
-import io.kubernetes.client.openapi.models.V1ContainerStateWaiting;
-import io.kubernetes.client.openapi.models.V1ContainerStatus;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobList;
-import io.kubernetes.client.openapi.models.V1JobStatus;
-import io.kubernetes.client.openapi.models.V1Pod;
-import io.kubernetes.client.openapi.models.V1PodStatus;
+import io.kubernetes.client.openapi.models.*;
 import io.kubernetes.client.util.Watch;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
@@ -186,7 +179,7 @@ public class KubernetesService implements OrchestrationService {
         try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
 
             for (Watch.Response<V1Job> item : watch) {
-                log.info("Job status: {}", item.object.getStatus());
+                log.debug("Job status for task id {} {}", taskId, item.object.getStatus());
                 final KubernetesStatus status = evaluateJobStatus(item.object, replicas);
                 if (jobStatusEvaluator.apply(status)) {
                     return status;
