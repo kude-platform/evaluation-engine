@@ -162,6 +162,8 @@ public class KubernetesService implements OrchestrationService {
                 .getItems()
                 .get(0);
 
+        log.debug("Evaluating job status for evaluation id {} {}", taskId, Optional.ofNullable(job).map(V1Job::getStatus).map(V1JobStatus::toJson).orElse(""));
+
         return evaluateJobStatus(job, replicas);
     }
 

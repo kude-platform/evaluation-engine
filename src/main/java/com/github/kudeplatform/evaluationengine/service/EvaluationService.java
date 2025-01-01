@@ -414,9 +414,11 @@ public class EvaluationService {
                             result = new SingleEvaluationResult(task, EvaluationStatus.CANCELLED, List.of());
                         } catch (TimeoutException exception) {
                             log.info("Evaluation timed out for task {}", task.taskId());
+                            evaluationFuture.cancel(true);
                             result = new SingleEvaluationResult(task, EvaluationStatus.TIMEOUT, List.of());
                         } catch (ExecutionException e) {
                             log.error("Evaluation failed", e.getCause());
+                            evaluationFuture.cancel(true);
                             result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         }
 
