@@ -4,7 +4,8 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 
 /**
@@ -12,6 +13,6 @@ import java.util.function.Consumer;
  */
 public interface AsyncEvaluator {
 
-    CompletableFuture<Result> evaluate(EvaluationTask evaluationTask, Consumer<EvaluationEvent> updateCallback);
+    Future<Result> evaluate(EvaluationTask evaluationTask, Consumer<EvaluationEvent> updateCallback, CompletionService<Result> completionService);
 
 }

@@ -4,14 +4,7 @@ import com.github.kudeplatform.evaluationengine.api.Error;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.EvaluationFinishedEvaluator;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
-import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
-import com.github.kudeplatform.evaluationengine.domain.Result;
-import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
-import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
+import com.github.kudeplatform.evaluationengine.domain.*;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
@@ -23,6 +16,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,22 +27,8 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
@@ -62,6 +42,9 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 public class EvaluationService {
 
     final ThreadPoolTaskExecutor taskExecutor;
+
+    @Qualifier(value = "asyncEvaluatorExecutorService")
+    final ExecutorService asyncEvaluatorExecutorService;
 
     final EvaluationEventRepository evaluationEventRepository;
 
@@ -94,6 +77,11 @@ public class EvaluationService {
 
     private Semaphore evaluationLock;
 
+    @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
+    private String useWatchToDetectCompletion;
+
+    private boolean useWatchToDetectCompletionAsBoolean;
+
     @Getter
     private int numberOfNodes;
 
@@ -111,6 +99,12 @@ public class EvaluationService {
         for (int i = 0; i < maxNumberOfParallelJobs; i++) {
             final EvaluationRunnable evaluationRunnable = new EvaluationRunnable();
             activeEvaluationThreads.add(taskExecutor.submit(evaluationRunnable));
+        }
+
+        try {
+            useWatchToDetectCompletionAsBoolean = Boolean.parseBoolean(useWatchToDetectCompletion);
+        } catch (final Exception e) {
+            useWatchToDetectCompletionAsBoolean = false;
         }
     }
 
@@ -167,7 +161,10 @@ public class EvaluationService {
             final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
             resultEntity.getPodIndicesCompleted().add(Integer.parseInt(ingestedEvent.getIndex()));
             evaluationResultRepository.save(resultEntity);
-            evaluationFinishedEvaluator.notifyEvaluationFinished();
+
+            if (!useWatchToDetectCompletionAsBoolean) {
+                evaluationFinishedEvaluator.notifyEvaluationFinished();
+            }
         }
     }
 
@@ -403,7 +400,8 @@ public class EvaluationService {
                         kubernetesService.waitForJobRunning(task.taskId(), settingsService.getReplicationFactor());
                         updateTaskStatus(task, EvaluationStatus.RUNNING);
 
-                        final CompletableFuture<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback);
+                        final ExecutorCompletionService<Result> completionService = new ExecutorCompletionService<>(asyncEvaluatorExecutorService);
+                        final Future<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback, completionService);
                         evaluationFutures.put(task.taskId(), evaluationFuture);
 
                         Result result;

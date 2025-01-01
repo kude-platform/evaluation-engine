@@ -22,9 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * @author timo.buechert
@@ -98,6 +96,11 @@ public class ApplicationConfig {
         executor.setThreadNamePrefix("EvaluationTaskExecutor-");
         executor.initialize();
         return executor;
+    }
+
+    @Bean(name = "asyncEvaluatorExecutorService")
+    ExecutorService executorService() {
+        return Executors.newCachedThreadPool();
     }
 
 }
