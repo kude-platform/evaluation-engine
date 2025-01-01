@@ -471,10 +471,10 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             if (item.getStatus().isFinal() && item.isResultsAvailable()) {
                 final Span status = new Span();
                 if (item.isResultsCorrect()) {
-                    status.setText("Correct solution");
+                    status.setText(String.format("Correct solution (%s)", item.getResultProportion()));
                     status.getElement().getThemeList().add("badge success");
                 } else {
-                    status.setText("Incorrect solution");
+                    status.setText(String.format("Incorrect solution (%s)", item.getResultProportion()));
                     status.getElement().getThemeList().add("badge error");
                 }
 
@@ -482,7 +482,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             }
 
             return null;
-        })).setHeader("Results Status");
+        })).setHeader("Results Status (correct/total/expected)");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         return grid;

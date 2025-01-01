@@ -55,7 +55,7 @@ class EvaluationServiceTest {
         assertThat(resultsEvaluation.correctActual()).isEqualTo(7);
         assertThat(resultsEvaluation.correctExpected()).isEqualTo(7);
         assertThat(resultsEvaluation.totalActual()).isEqualTo(7);
-        assertThat(resultsEvaluation.resultProportion()).isEqualTo("7/7");
+        assertThat(resultsEvaluation.resultProportion()).isEqualTo("7/7/7");
     }
 
     @Test
@@ -92,6 +92,6 @@ class EvaluationServiceTest {
         assertThat(resultsEvaluation.correctActual()).isEqualTo(6);
         assertThat(resultsEvaluation.correctExpected()).isEqualTo(7);
         assertThat(resultsEvaluation.totalActual()).isEqualTo(6);
-        assertThat(resultsEvaluation.resultProportion()).isEqualTo("6/7");
+        assertThat(resultsEvaluation.resultProportion()).isEqualTo("6/6/7");
     }
 }

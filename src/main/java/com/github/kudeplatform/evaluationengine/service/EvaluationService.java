@@ -355,7 +355,7 @@ public class EvaluationService {
         }
 
         final boolean allCorrect = new HashSet<>(cleanedResultList).containsAll(cleanedSolutionList) && new HashSet<>(cleanedSolutionList).containsAll(cleanedResultList);
-        final String resultProportion = String.format("%d/%d", totalCorrect, cleanedSolutionList.size());
+        final String resultProportion = String.format("%d/%d/%d", totalCorrect, cleanedResultList.size(), cleanedSolutionList.size());
 
         return new ResultsEvaluation(cleanedResultList.size(), totalCorrect, cleanedSolutionList.size(), allCorrect, resultProportion);
     }
