@@ -10,6 +10,7 @@ import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
 import com.github.kudeplatform.evaluationengine.domain.Result;
+import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
 import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
@@ -30,10 +31,12 @@ import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.File;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -317,11 +320,14 @@ public class EvaluationService {
             final EvaluationResultWithEvents evaluationResultWithEvents = EvaluationResultWithEvents.builder()
                     .taskId(evaluationResultEntity.getTaskId())
                     .name(evaluationResultEntity.getName())
-                    .timestamp(evaluationResultEntity.getTimestamp())
+                    .startTimestamp(evaluationResultEntity.getStartTimestamp())
+                    .endTimestamp(evaluationResultEntity.getEndTimestamp())
+                    .durationInSeconds(Math.toIntExact(Duration.between(evaluationResultEntity.getStartTimestamp(), evaluationResultEntity.getEndTimestamp()).getSeconds()))
                     .status(evaluationResultEntity.getStatus())
                     .logsAvailable(evaluationResultEntity.isLogsAvailable())
                     .resultsAvailable(evaluationResultEntity.isResultsAvailable())
                     .resultsCorrect(evaluationResultEntity.isResultsCorrect())
+                    .resultProportion(evaluationResultEntity.getResultProportion())
                     .message(evaluationResultEntity.getMessage())
                     .events(evaluationEventEntities.stream().map(EvaluationEventEntity::getCategory).distinct().collect(Collectors.joining(",")))
                     .build();
@@ -334,30 +340,24 @@ public class EvaluationService {
         return (this.numberOfNodes * maxJobsPerNode) / replicationFactor;
     }
 
-    public boolean areResultsCorrect(final String results) {
+    public ResultsEvaluation areResultsCorrect(final String results) {
         final List<String> solutionList = Arrays.asList(settingsService.getExpectedSolution().split("\n"));
         final List<String> resultList = Arrays.asList(results.split("\n"));
 
-        final List<String> cleanedSolutionList = solutionList.stream().filter(StringUtils::hasText).map(String::trim).toList();
-        final List<String> cleanedResultList = resultList.stream().filter(StringUtils::hasText).map(String::trim).toList();
+        final List<String> cleanedSolutionList = solutionList.stream().filter(StringUtils::hasText).map(String::trim).distinct().toList();
+        final List<String> cleanedResultList = resultList.stream().filter(StringUtils::hasText).map(String::trim).distinct().toList();
 
-        if (cleanedSolutionList.size() != cleanedResultList.size()) {
-            return false;
-        }
-
-        for (final String cleanedSolution : cleanedSolutionList) {
-            if (!cleanedResultList.contains(cleanedSolution)) {
-                return false;
-            }
-        }
-
+        int totalCorrect = 0;
         for (final String cleanedResult : cleanedResultList) {
-            if (!cleanedSolutionList.contains(cleanedResult)) {
-                return false;
+            if (cleanedSolutionList.contains(cleanedResult)) {
+                totalCorrect++;
             }
         }
 
-        return true;
+        final boolean allCorrect = new HashSet<>(cleanedResultList).containsAll(cleanedSolutionList) && new HashSet<>(cleanedSolutionList).containsAll(cleanedResultList);
+        final String resultProportion = String.format("%d/%d", totalCorrect, cleanedSolutionList.size());
+
+        return new ResultsEvaluation(cleanedResultList.size(), totalCorrect, cleanedSolutionList.size(), allCorrect, resultProportion);
     }
 
     public String getTemplateStartCommand(final int instanceId, String datasetName) {
@@ -395,6 +395,8 @@ public class EvaluationService {
                             evaluationResultRepository.save(resultEntity);
                             continue;
                         }
+                        setStartTimestampNow(task);
+
                         updateTaskStatus(task, EvaluationStatus.DEPLOYING);
                         deploy(task);
 
@@ -417,6 +419,8 @@ public class EvaluationService {
                             log.error("Evaluation failed", e.getCause());
                             result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         }
+
+                        setEndTimestampNow(task);
 
                         evaluationFutures.remove(task.taskId());
                         final EvaluationResultEntity resultEntity =
@@ -458,9 +462,20 @@ public class EvaluationService {
         private void updateTaskStatus(final EvaluationTask task, final EvaluationStatus evaluationStatus) {
             final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
             evaluationResultEntity.setStatus(evaluationStatus);
-            evaluationResultEntity.setTimestamp(ZonedDateTime.now());
             evaluationResultRepository.save(evaluationResultEntity);
             notifyView();
+        }
+
+        private void setStartTimestampNow(final EvaluationTask task) {
+            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
+            evaluationResultEntity.setStartTimestamp(ZonedDateTime.now());
+            evaluationResultRepository.save(evaluationResultEntity);
+        }
+
+        private void setEndTimestampNow(final EvaluationTask task) {
+            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
+            evaluationResultEntity.setEndTimestamp(ZonedDateTime.now());
+            evaluationResultRepository.save(evaluationResultEntity);
         }
 
         public void evaluationEventCallback(final EvaluationEvent result) {

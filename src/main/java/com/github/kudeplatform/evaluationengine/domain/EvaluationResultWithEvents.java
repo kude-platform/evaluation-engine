@@ -16,7 +16,11 @@ public class EvaluationResultWithEvents {
 
     private String name;
 
-    private ZonedDateTime timestamp;
+    private ZonedDateTime startTimestamp;
+
+    private ZonedDateTime endTimestamp;
+
+    private int durationInSeconds;
 
     private EvaluationStatus status;
 
@@ -25,6 +29,8 @@ public class EvaluationResultWithEvents {
     private boolean resultsAvailable;
 
     private boolean resultsCorrect;
+
+    private String resultProportion;
 
     private String message;
 

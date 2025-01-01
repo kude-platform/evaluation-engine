@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.api;
 
+import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
 import lombok.extern.slf4j.Slf4j;
@@ -49,12 +50,13 @@ public class FileIngestionController {
             throw new RuntimeException("Failed to save results file.");
         }
 
-        final boolean areResultsCorrect = this.evaluationService.areResultsCorrect(results);
+        final ResultsEvaluation resultsEvaluation = this.evaluationService.areResultsCorrect(results);
 
         this.evaluationResultRepository.findById(jobId)
                 .ifPresent(evaluationResultEntity -> {
                     evaluationResultEntity.setResultsAvailable(true);
-                    evaluationResultEntity.setResultsCorrect(areResultsCorrect);
+                    evaluationResultEntity.setResultsCorrect(resultsEvaluation.correct());
+                    evaluationResultEntity.setResultProportion(resultsEvaluation.resultProportion());
                     this.evaluationResultRepository.save(evaluationResultEntity);
                     this.evaluationService.notifyView();
                 });

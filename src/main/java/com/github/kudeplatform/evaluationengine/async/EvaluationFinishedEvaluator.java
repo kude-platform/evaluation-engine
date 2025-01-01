@@ -93,11 +93,6 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             }
 
             final EvaluationStatus evaluationStatus = EvaluationUtils.mapToEvaluationStatus(jobStatus);
-
-            final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                    evaluationStatus, "Evaluation finished.", "", "");
-            results.add(finalResult);
-            updateCallback.accept(finalResult);
             return new SingleEvaluationResult(evaluationTask,
                     evaluationStatus,
                     results);

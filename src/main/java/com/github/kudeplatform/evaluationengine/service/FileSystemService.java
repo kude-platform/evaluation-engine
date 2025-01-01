@@ -44,7 +44,7 @@ public class FileSystemService {
     public static final String KUDE_DATA_PATH = System.getProperty("user.home") + File.separator + "kude-data" + File.separator;
 
     private static final String[] CSV_HEADER = {
-            "taskId", "name", "timestamp", "status", "logsAvailable", "resultsAvailable", "resultsCorrect", "message", "events"
+            "taskId", "name", "startTimestamp", "endTimestamp", "durationInSeconds", "status", "logsAvailable", "resultsAvailable", "resultsCorrect", "resultProportion", "message", "events"
     };
 
     private final DatasetRepository datasetRepository;
@@ -92,11 +92,14 @@ public class FileSystemService {
         return new String[]{
                 evaluationResultWithEvents.getTaskId(),
                 evaluationResultWithEvents.getName(),
-                evaluationResultWithEvents.getTimestamp().toString(),
+                evaluationResultWithEvents.getStartTimestamp().toString(),
+                evaluationResultWithEvents.getEndTimestamp().toString(),
+                String.valueOf(evaluationResultWithEvents.getDurationInSeconds()),
                 evaluationResultWithEvents.getStatus().name(),
                 String.valueOf(evaluationResultWithEvents.isLogsAvailable()),
                 String.valueOf(evaluationResultWithEvents.isResultsAvailable()),
                 String.valueOf(evaluationResultWithEvents.isResultsCorrect()),
+                evaluationResultWithEvents.getResultProportion(),
                 evaluationResultWithEvents.getMessage(),
                 evaluationResultWithEvents.getEvents()
         };

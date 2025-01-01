@@ -27,7 +27,9 @@ public class EvaluationResultEntity {
     
     private String name;
 
-    private ZonedDateTime timestamp;
+    private ZonedDateTime startTimestamp;
+
+    private ZonedDateTime endTimestamp;
 
     private EvaluationStatus status;
     
@@ -36,6 +38,8 @@ public class EvaluationResultEntity {
     private boolean resultsAvailable;
 
     private boolean resultsCorrect;
+
+    private String resultProportion;
 
     @ElementCollection(fetch = FetchType.EAGER)
     private List<Integer> podIndicesReadyToRun;
