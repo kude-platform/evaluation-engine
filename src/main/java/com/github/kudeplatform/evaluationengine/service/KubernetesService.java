@@ -43,8 +43,6 @@ import java.util.function.Function;
 @Slf4j
 public class KubernetesService implements OrchestrationService {
 
-    private static final int NODES_RESERVED_FOR_SYSTEM = 1;
-
     @Autowired
     private CoreV1Api coreV1Api;
 
@@ -59,6 +57,9 @@ public class KubernetesService implements OrchestrationService {
 
     @Value("${EVALUATION_ENGINE_PORT:8080}")
     private String evaluationEnginePort;
+
+    @Value("${NODES_RESERVED_FOR_SYSTEM:1}")
+    private int nodesReservedForSystem = 1;
 
 
     @PostConstruct
@@ -83,7 +84,7 @@ public class KubernetesService implements OrchestrationService {
     public int getNumberOfNodes() throws ApiException {
         //return 12;
         //TODO: this currently fails due to https://github.com/kubernetes-client/java/issues/3319
-        return coreV1Api.listNode().execute().getItems().size() - NODES_RESERVED_FOR_SYSTEM;
+        return coreV1Api.listNode().execute().getItems().size() - nodesReservedForSystem;
     }
 
     public V1JobStatus getJobStatus(String taskId) throws ApiException, OrchestrationServiceException {
