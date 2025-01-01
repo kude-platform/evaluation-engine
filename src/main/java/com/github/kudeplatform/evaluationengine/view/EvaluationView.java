@@ -399,7 +399,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         grid.addColumn(EvaluationResultEntity::getMessage).setHeader("Message");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
-            if (item.getStatus().isFinal()) {
+            if (item.getStatus().isFinal() && item.getStartTimestamp() != null && item.getEndTimestamp() != null) {
                 final Span span = new Span();
                 span.setText(String.valueOf(ChronoUnit.SECONDS.between(item.getStartTimestamp(), item.getEndTimestamp())));
                 return span;
