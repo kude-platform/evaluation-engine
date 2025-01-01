@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -76,6 +77,10 @@ public class MultiEvaluator implements AsyncEvaluator {
 
             return completableFutures.get(0).get();
 
+        } catch (final CancellationException cancellationException){
+            log.debug("MultiEvaluator cancelled. Now cancelling dependent futures.");
+            completableFutures.forEach(cf -> cf.cancel(true));
+            return new SingleEvaluationResult(evaluationTask, EvaluationStatus.CANCELLED, new ArrayList<>());
         } catch (final ExecutionException | InterruptedException | CompletionException e) {
             log.error("Error while evaluating task: " + evaluationTask.taskId(), e);
             return new SingleEvaluationResult(evaluationTask, EvaluationStatus.FAILED, new ArrayList<>());
