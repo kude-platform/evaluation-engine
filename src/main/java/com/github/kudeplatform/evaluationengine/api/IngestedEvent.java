@@ -18,4 +18,6 @@ public class IngestedEvent {
     
     private List<Error> errorObjects;
 
+    private String durationInSeconds;
+
 }

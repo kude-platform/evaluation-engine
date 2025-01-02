@@ -125,7 +125,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         gitBinder.forField(gitRepositoryUrl)
                 .withValidator(new StringLengthValidator("GIT Repository URL must contain at least 1 character", 1, null))
                 .withValidator(new RegexpValidator("GIT Repository URL must be in a URL format", "https?:\\/\\/(www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b([-a-zA-Z0-9()@:%_\\+.~#?&//=]*)"))
-                .bind(GitEvaluationTask::repositoryUrl, GitEvaluationTask::setRepositoryUrl);
+                .bind(GitEvaluationTask::repositoryUrl, GitEvaluationTask::setGitUrl);
 
         final Binder<GitEvaluationTask> gitBranchBinder = new Binder<>(GitEvaluationTask.class);
         gitBranchBinder.forField(gitBranch)
@@ -401,7 +401,10 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isFinal() && item.getStartTimestamp() != null && item.getEndTimestamp() != null) {
                 final Span span = new Span();
-                span.setText(String.valueOf(ChronoUnit.SECONDS.between(item.getStartTimestamp(), item.getEndTimestamp())));
+                final String grossDuration = String.valueOf(ChronoUnit.SECONDS.between(item.getStartTimestamp(), item.getEndTimestamp()));
+                final String netDuration = item.getNetEvaluationDurationInSeconds();
+                final String text = String.format("%s (net %s)", grossDuration, netDuration);
+                span.setText(text);
                 return span;
             }
             if (!item.getStatus().isRunning()) {

@@ -33,9 +33,12 @@ class FileSystemServiceTest {
                 EvaluationResultWithEvents.builder()
                         .taskId("1")
                         .name("Test")
+                        .gitUrl("https://github.com/test")
+                        .gitBranch("main")
                         .startTimestamp(ZonedDateTime.of(2024, 1, 1, 1, 1, 1, 1, ZoneId.systemDefault()))
                         .endTimestamp(ZonedDateTime.of(2024, 1, 1, 1, 1, 30, 1, ZoneId.systemDefault()))
                         .durationInSeconds(29)
+                        .netDurationInSeconds(10)
                         .status(EvaluationStatus.SUCCEEDED)
                         .logsAvailable(true)
                         .resultsAvailable(true)
@@ -47,9 +50,12 @@ class FileSystemServiceTest {
                 EvaluationResultWithEvents.builder()
                         .taskId("2")
                         .name("Test")
+                        .gitUrl("https://github.com/test")
+                        .gitBranch("main")
                         .startTimestamp(ZonedDateTime.of(2024, 1, 1, 1, 1, 1, 1, ZoneId.systemDefault()))
                         .endTimestamp(ZonedDateTime.of(2024, 1, 1, 1, 1, 30, 1, ZoneId.systemDefault()))
                         .durationInSeconds(29)
+                        .netDurationInSeconds(10)
                         .status(EvaluationStatus.FAILED)
                         .logsAvailable(true)
                         .resultsAvailable(true)
@@ -69,9 +75,9 @@ class FileSystemServiceTest {
         final List<String> lines = Files.readAllLines(resultFile.toPath());
         assertThat(lines).hasSize(3);
 
-        assertThat(lines.get(0)).isEqualTo("taskId;name;startTimestamp;endTimestamp;durationInSeconds;status;logsAvailable;resultsAvailable;resultsCorrect;resultProportion;message;events");
-        assertThat(lines.get(1)).isEqualTo("1;Test;2024-01-01T01:01:01.000000001+01:00[Europe/Berlin];2024-01-01T01:01:30.000000001+01:00[Europe/Berlin];29;SUCCEEDED;true;true;true;1/1;Test;Event1,Event2");
-        assertThat(lines.get(2)).isEqualTo("2;Test;2024-01-01T01:01:01.000000001+01:00[Europe/Berlin];2024-01-01T01:01:30.000000001+01:00[Europe/Berlin];29;FAILED;true;true;true;1/1;Test2;Event1,Event2");
+        assertThat(lines.get(0)).isEqualTo("taskId;name;gitUrl;gitBranch;startTimestamp;endTimestamp;durationInSeconds;netDurationInSeconds;status;logsAvailable;resultsAvailable;resultsCorrect;resultProportion;message;events");
+        assertThat(lines.get(1)).isEqualTo("1;Test;https://github.com/test;main;2024-01-01T01:01:01.000000001+01:00[Europe/Berlin];2024-01-01T01:01:30.000000001+01:00[Europe/Berlin];29;10;SUCCEEDED;true;true;true;1/1;Test;Event1,Event2");
+        assertThat(lines.get(2)).isEqualTo("2;Test;https://github.com/test;main;2024-01-01T01:01:01.000000001+01:00[Europe/Berlin];2024-01-01T01:01:30.000000001+01:00[Europe/Berlin];29;10;FAILED;true;true;true;1/1;Test2;Event1,Event2");
         
         Files.delete(resultFile.toPath());
     }

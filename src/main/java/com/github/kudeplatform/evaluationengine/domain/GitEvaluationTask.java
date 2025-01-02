@@ -7,23 +7,23 @@ import java.util.List;
  */
 public class GitEvaluationTask extends EvaluationTask {
 
-    private String repositoryUrl;
+    private String gitUrl;
 
     private String gitBranch;
 
-    public GitEvaluationTask(String repositoryUrl, String taskId, List<String> instanceStartCommands,
+    public GitEvaluationTask(String gitUrl, String taskId, List<String> instanceStartCommands,
                              String name, String gitBranch, String datasetName) {
         super(taskId, instanceStartCommands, name, datasetName);
-        this.repositoryUrl = repositoryUrl;
+        this.gitUrl = gitUrl;
         this.gitBranch = gitBranch;
     }
 
     public String repositoryUrl() {
-        return repositoryUrl;
+        return gitUrl;
     }
-    
-    public void setRepositoryUrl(String repositoryUrl) {
-        this.repositoryUrl = repositoryUrl;
+
+    public void setGitUrl(String gitUrl) {
+        this.gitUrl = gitUrl;
     }
 
     public String gitBranch() {

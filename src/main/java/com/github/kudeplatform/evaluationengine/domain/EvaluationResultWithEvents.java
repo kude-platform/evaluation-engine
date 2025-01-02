@@ -16,11 +16,17 @@ public class EvaluationResultWithEvents {
 
     private String name;
 
+    private String gitUrl;
+
+    private String gitBranch;
+
     private ZonedDateTime startTimestamp;
 
     private ZonedDateTime endTimestamp;
 
     private int durationInSeconds;
+
+    private int netDurationInSeconds;
 
     private EvaluationStatus status;
 

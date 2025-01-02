@@ -27,9 +27,15 @@ public class EvaluationResultEntity {
     
     private String name;
 
+    private String gitUrl;
+
+    private String gitBranch;
+
     private ZonedDateTime startTimestamp;
 
     private ZonedDateTime endTimestamp;
+
+    private String netEvaluationDurationInSeconds;
 
     private EvaluationStatus status;
     

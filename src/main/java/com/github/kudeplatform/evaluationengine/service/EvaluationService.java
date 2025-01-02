@@ -4,7 +4,14 @@ import com.github.kudeplatform.evaluationengine.api.Error;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.EvaluationFinishedEvaluator;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
-import com.github.kudeplatform.evaluationengine.domain.*;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
+import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
+import com.github.kudeplatform.evaluationengine.domain.Result;
+import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
+import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
@@ -27,8 +34,23 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
@@ -41,6 +63,7 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @Slf4j
 public class EvaluationService {
 
+    @Qualifier("evaluationTaskExecutor")
     final ThreadPoolTaskExecutor taskExecutor;
 
     @Qualifier(value = "asyncEvaluatorExecutorService")
@@ -127,6 +150,10 @@ public class EvaluationService {
             for (final String error : ingestedEvent.getErrors()) {
                 handleEvent(ingestedEvent, error);
             }
+        } else if (ingestedEvent.getDurationInSeconds() != null) {
+            final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
+            resultEntity.setNetEvaluationDurationInSeconds(ingestedEvent.getDurationInSeconds());
+            evaluationResultRepository.save(resultEntity);
         }
 
         this.notifyView();
@@ -217,8 +244,10 @@ public class EvaluationService {
             String gitToken = settingsService.getGitToken();
             if (!gitUser.isEmpty() && !gitToken.isEmpty()) {
                 final String gitUrl = gitEvaluationTask.repositoryUrl();
-                gitEvaluationTask.setRepositoryUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
+                gitEvaluationTask.setGitUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
             }
+            evaluationResultEntity.setGitUrl(gitEvaluationTask.repositoryUrl());
+            evaluationResultEntity.setGitBranch(gitEvaluationTask.gitBranch());
         }
 
         evaluationResultRepository.save(evaluationResultEntity);
@@ -317,9 +346,12 @@ public class EvaluationService {
             final EvaluationResultWithEvents evaluationResultWithEvents = EvaluationResultWithEvents.builder()
                     .taskId(evaluationResultEntity.getTaskId())
                     .name(evaluationResultEntity.getName())
+                    .gitUrl(evaluationResultEntity.getGitUrl())
+                    .gitBranch(evaluationResultEntity.getGitBranch())
                     .startTimestamp(evaluationResultEntity.getStartTimestamp())
                     .endTimestamp(evaluationResultEntity.getEndTimestamp())
                     .durationInSeconds(Math.toIntExact(Duration.between(evaluationResultEntity.getStartTimestamp(), evaluationResultEntity.getEndTimestamp()).getSeconds()))
+                    .netDurationInSeconds(Integer.parseInt(Optional.ofNullable(evaluationResultEntity.getNetEvaluationDurationInSeconds()).orElse("0")))
                     .status(evaluationResultEntity.getStatus())
                     .logsAvailable(evaluationResultEntity.isLogsAvailable())
                     .resultsAvailable(evaluationResultEntity.isResultsAvailable())
