@@ -110,7 +110,7 @@ public class EvaluationService {
     }
 
     @Transactional
-    public void saveIngestedEvent(final IngestedEvent ingestedEvent) {
+    public synchronized void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         if (!CollectionUtils.isEmpty(ingestedEvent.getErrorObjects())) {
             for (final Error error : ingestedEvent.getErrorObjects()) {
                 handleEvent(ingestedEvent, error.getCategory());
@@ -133,7 +133,7 @@ public class EvaluationService {
         this.notifyView();
     }
 
-    private void handleEvent(final IngestedEvent ingestedEvent, final String event) {
+    private synchronized void handleEvent(final IngestedEvent ingestedEvent, final String event) {
         final List<EvaluationEventEntity> byTaskIdAndCategory =
                 evaluationEventRepository.findByTaskIdAndCategory(ingestedEvent.getEvaluationId(), event);
 
@@ -215,14 +215,15 @@ public class EvaluationService {
         evaluationResultEntity.setName(evaluationTask.name());
 
         if (evaluationTask instanceof GitEvaluationTask gitEvaluationTask) {
-            String gitUser = settingsService.getGitUsername();
-            String gitToken = settingsService.getGitToken();
+            evaluationResultEntity.setGitUrl(gitEvaluationTask.repositoryUrl());
+            evaluationResultEntity.setGitBranch(gitEvaluationTask.gitBranch());
+
+            final String gitUser = settingsService.getGitUsername();
+            final String gitToken = settingsService.getGitToken();
             if (!gitUser.isEmpty() && !gitToken.isEmpty()) {
                 final String gitUrl = gitEvaluationTask.repositoryUrl();
                 gitEvaluationTask.setGitUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
             }
-            evaluationResultEntity.setGitUrl(gitEvaluationTask.repositoryUrl());
-            evaluationResultEntity.setGitBranch(gitEvaluationTask.gitBranch());
         }
 
         evaluationResultRepository.save(evaluationResultEntity);

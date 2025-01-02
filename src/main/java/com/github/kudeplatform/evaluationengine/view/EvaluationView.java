@@ -357,7 +357,11 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             return anchor;
         })).setHeader("Task ID");
 
-        grid.addColumn(EvaluationResultEntity::getName).setHeader("Name");
+        grid.addColumn(new ComponentRenderer<>(item -> {
+            final Span span = new Span();
+            span.setText(String.format("%s / %s", item.getName(), item.getGitUrl()));
+            return span;
+        })).setHeader("Name / Repository");
 
         grid.addColumn(evaluationResultEntity -> {
             final int positionInQueue = this.evaluationService.getPositionInQueue(evaluationResultEntity.getTaskId());
