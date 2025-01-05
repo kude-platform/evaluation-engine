@@ -6,5 +6,7 @@ package com.github.kudeplatform.evaluationengine.view;
 public interface NotifiableComponent {
 
     void dataChanged();
+
+    void dataChanged(String taskId);
     
 }

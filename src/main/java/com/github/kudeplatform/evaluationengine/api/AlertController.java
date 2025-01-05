@@ -92,9 +92,9 @@ public class AlertController {
 
     @RequestMapping(value = "/api/alerts", method = RequestMethod.POST)
     public void saveResults(@RequestBody final AlertNotification alertNotification) {
-        log.info("Received alert notification: {}", alertNotification);
+        log.debug("Received alert notification: {}", alertNotification);
         for (final Alert alert : alertNotification.getAlerts()) {
-            log.info("Received alert: {}", alert);
+            log.debug("Received alert: {}", alert);
             final String evaluationId = Optional.ofNullable(alert.getLabels().get("label_evaluation_id")).map(Object::toString).orElse("");
             final String alertName = alert.getLabels().get("alertname").toString();
 
@@ -112,7 +112,7 @@ public class AlertController {
     }
 
     private void handleOnePodLowCpuUsageAlert(String evaluationId, Alert alert) {
-        log.info("Handling low CPU usage alert for evaluation {}", evaluationId);
+        log.debug("Handling low CPU usage alert for evaluation {}", evaluationId);
 
         final Optional<EvaluationResultEntity> evaluationResultEntity = evaluationResultRepository.findById(evaluationId);
         if (evaluationResultEntity.isEmpty()) {
@@ -125,7 +125,7 @@ public class AlertController {
     }
 
     private void handleLowCpuUsageAlert(final String evaluationId, final Alert alert) {
-        log.info("Handling low CPU usage alert for evaluation {}", evaluationId);
+        log.debug("Handling low CPU usage alert for evaluation {}", evaluationId);
 
         final Optional<EvaluationResultEntity> evaluationResultEntity = evaluationResultRepository.findById(evaluationId);
         if (evaluationResultEntity.isEmpty()) {

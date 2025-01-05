@@ -78,4 +78,9 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String>, 
     public void dataChanged() {
         this.update();
     }
+
+    @Override
+    public void dataChanged(final String taskId) {
+        this.update();
+    }
 }

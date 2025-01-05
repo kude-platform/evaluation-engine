@@ -126,6 +126,11 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
         this.update();
     }
 
+    @Override
+    public void dataChanged(final String taskId) {
+        this.update();
+    }
+
     private void update() {
         getUI().ifPresent(ui -> ui.access(() -> {
             this.datasetGrid.setItems(fileSystemService.getAvailableDatasets());

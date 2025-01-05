@@ -404,12 +404,13 @@ public class SettingsView extends VerticalLayout {
                 new LogEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", LEVEL_WARNING),
                 new LogEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", LEVEL_WARNING),
                 new LogEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", LEVEL_ERROR),
-                new LogEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds,IndexOutOfBoundsException", LEVEL_ERROR),
                 new LogEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", LEVEL_ERROR),
                 new LogEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "FAILED_TO_SERIALIZE_OVERSIZED_MESSAGE", "Failed to serialize oversized message", LEVEL_ERROR),
                 new LogEventDefinitionEntity(null, "CLASS_NOT_FOUND", "ClassNotFoundException", LEVEL_FATAL),
-                new LogEventDefinitionEntity(null, "ILLEGAL_ARGUMENT", "IllegalArgumentException", LEVEL_FATAL)
+                new LogEventDefinitionEntity(null, "ILLEGAL_ARGUMENT", "IllegalArgumentException", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "DEFAULT_PRESS_ENTER_TO_EXIT_NOT_REMOVED", "Press ENTER to exit", LEVEL_FATAL)
         );
 
         final List<LogEventDefinitionEntity> logEventDefinitions = this.logEventDefinitionRepository.findAll();

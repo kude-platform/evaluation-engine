@@ -14,13 +14,13 @@ import org.apache.commons.io.IOUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static java.nio.file.StandardOpenOption.*;
@@ -38,10 +38,6 @@ public class FileSystemService {
             System.getProperty("java.io.tmpdir") + File.separator + KUDE_TMP_FOLDER_NAME + File.separator;
 
     public static final String KUDE_DATA_PATH = System.getProperty("user.home") + File.separator + "kude-data" + File.separator;
-
-    private static final String[] CSV_HEADER = {
-            "taskId", "name", "gitUrl", "gitBranch", "startTimestamp", "endTimestamp", "durationInSeconds", "netDurationInSeconds", "status", "logsAvailable", "resultsAvailable", "resultsCorrect", "resultProportion", "message", "events"
-    };
 
     private final DatasetRepository datasetRepository;
 
@@ -70,7 +66,9 @@ public class FileSystemService {
     }
 
     public void saveToCsvFile(final List<EvaluationResultWithEvents> evaluationResultWithEventsList) {
-        final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader(CSV_HEADER).setDelimiter(";").build();
+        final String[] headers = Arrays.stream(EvaluationResultWithEvents.class.getDeclaredFields()).map(Field::getName).toArray(String[]::new);
+
+        final CSVFormat format = CSVFormat.DEFAULT.builder().setHeader(headers).setDelimiter(";").build();
         final Path path = Paths.get(KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR + "export.csv");
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8, TRUNCATE_EXISTING, WRITE, CREATE);
              CSVPrinter printer = new CSVPrinter(writer, format)) {
@@ -85,23 +83,21 @@ public class FileSystemService {
     }
 
     private String[] serializeEvaluationResultWithEventsList(final EvaluationResultWithEvents evaluationResultWithEvents) {
-        return new String[]{
-                evaluationResultWithEvents.getTaskId(),
-                evaluationResultWithEvents.getName(),
-                evaluationResultWithEvents.getGitUrl(),
-                evaluationResultWithEvents.getGitBranch(),
-                Optional.ofNullable(evaluationResultWithEvents.getStartTimestamp()).map(Objects::toString).orElse(""),
-                Optional.ofNullable(evaluationResultWithEvents.getEndTimestamp()).map(Objects::toString).orElse(""),
-                String.valueOf(evaluationResultWithEvents.getDurationInSeconds()),
-                String.valueOf(evaluationResultWithEvents.getNetDurationInSeconds()),
-                evaluationResultWithEvents.getStatus().name(),
-                String.valueOf(evaluationResultWithEvents.isLogsAvailable()),
-                String.valueOf(evaluationResultWithEvents.isResultsAvailable()),
-                String.valueOf(evaluationResultWithEvents.isResultsCorrect()),
-                evaluationResultWithEvents.getResultProportion(),
-                evaluationResultWithEvents.getMessage(),
-                evaluationResultWithEvents.getEvents()
-        };
+        final Field[] fields = EvaluationResultWithEvents.class.getDeclaredFields();
+        final String[] result = new String[fields.length];
+
+        for (int i = 0; i < fields.length; i++) {
+            final Field field = fields[i];
+            try {
+                field.setAccessible(true);
+                result[i] = String.valueOf(field.get(evaluationResultWithEvents));
+            } catch (final Exception e) {
+                log.error("Could not serialize field {}. The error was: {}", field.getName(), e.getMessage());
+                result[i] = "Serialization error";
+            }
+        }
+
+        return result;
     }
 
     public void saveDataset(final InputStream in, final String fileName) {

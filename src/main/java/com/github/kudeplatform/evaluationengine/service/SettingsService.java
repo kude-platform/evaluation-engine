@@ -51,6 +51,10 @@ public class SettingsService {
     private String prometheusHost;
 
     @Getter
+    @Value("${GRAFANA_HOST:pi14.local:32300}")
+    private String grafanaHost;
+
+    @Getter
     @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
     private String useWatchToDetectCompletion;
 
@@ -113,7 +117,7 @@ public class SettingsService {
     }
 
     public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.7");
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.10");
     }
 
     public void setEvaluationImage(final String evaluationImage) {

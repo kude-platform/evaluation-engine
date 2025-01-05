@@ -113,7 +113,7 @@ public class EvaluationService {
             failEvaluationTask(ingestedEvent.getEvaluationId(), false);
         }
 
-        this.notifyView();
+        this.notifyView(ingestedEvent.getEvaluationId());
     }
 
     private synchronized void handleEvent(final IngestedEvent ingestedEvent, final Event event) {
@@ -151,7 +151,7 @@ public class EvaluationService {
                 evaluationFinishedEvaluator.notifyEvaluationFinished();
             }
         }
-        notifyView();
+        notifyView(ingestedEvent.getEvaluationId());
     }
 
     private String concatIndexIfNotYetContained(final IngestedEvent ingestedEvent,
@@ -206,6 +206,9 @@ public class EvaluationService {
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
         evaluationResultEntity.setStatus(EvaluationStatus.PENDING);
         evaluationResultEntity.setName(evaluationTask.name());
+        evaluationResultEntity.setDatasetName(evaluationTask.datasetName());
+        evaluationResultEntity.setMasterStartCommand(evaluationTask.instanceStartCommands().get(0));
+        evaluationResultEntity.setFirstWorkerStartCommand(evaluationTask.instanceStartCommands().size() > 1 ? evaluationTask.instanceStartCommands().get(1) : "");
 
         if (evaluationTask instanceof GitEvaluationTask gitEvaluationTask) {
             evaluationResultEntity.setGitUrl(gitEvaluationTask.repositoryUrl());
@@ -222,7 +225,7 @@ public class EvaluationService {
         evaluationResultRepository.save(evaluationResultEntity);
         evaluationTaskQueue.add(evaluationTask);
         if (notifyView) {
-            notifyView();
+            notifyView(evaluationTask.taskId());
         }
     }
 
@@ -238,7 +241,7 @@ public class EvaluationService {
         }
 
         if (notifyView) {
-            notifyView();
+            notifyView(taskId);
         }
     }
 
@@ -260,7 +263,7 @@ public class EvaluationService {
         }
 
         if (notifyView) {
-            notifyView();
+            notifyView(taskId);
         }
     }
 
@@ -279,7 +282,7 @@ public class EvaluationService {
 
         evaluationEventRepository.deleteByTaskId(taskId);
         evaluationResultRepository.deleteById(taskId);
-        notifyView();
+        notifyView(taskId);
     }
 
 
@@ -341,6 +344,9 @@ public class EvaluationService {
                     .name(evaluationResultEntity.getName())
                     .gitUrl(evaluationResultEntity.getGitUrl())
                     .gitBranch(evaluationResultEntity.getGitBranch())
+                    .datasetName(evaluationResultEntity.getDatasetName())
+                    .masterStartCommand(evaluationResultEntity.getMasterStartCommand())
+                    .firstWorkerStartCommand(evaluationResultEntity.getFirstWorkerStartCommand())
                     .startTimestamp(evaluationResultEntity.getStartTimestamp())
                     .endTimestamp(evaluationResultEntity.getEndTimestamp())
                     .durationInSeconds(durationInSeconds)
@@ -384,10 +390,10 @@ public class EvaluationService {
 
     public String getTemplateStartCommand(final int instanceId, String datasetName) {
         if (instanceId == 0) {
-            return String.format("java -Xms2048m -Xmx2048m -jar ./app.jar master -h $CURRENT_HOST -ia $POD_IP -kb true -ip /data/%s", datasetName);
+            return String.format("java -Xms2048m -Xmx2048m -jar ./app.jar master -h $CURRENT_HOST -ip /data/%s -w 4", datasetName);
         }
 
-        return "java -Xms2048m -Xmx2048m -jar ./app.jar worker -mh $MASTER_HOST -h $CURRENT_HOST -ia $POD_IP -kb true -w 4";
+        return "java -Xms2048m -Xmx2048m -jar ./app.jar worker -mh $MASTER_HOST -h $CURRENT_HOST -w 4";
     }
 
     class EvaluationRunnable implements Runnable {
@@ -418,13 +424,13 @@ public class EvaluationService {
                     try {
                         evaluationLock.acquire();
 
-                        setStartTimestampNow(task);
+                        setStartTimestampNow(task.taskId());
 
-                        updateTaskStatus(task, EvaluationStatus.DEPLOYING);
+                        updateTaskStatus(task.taskId(), EvaluationStatus.DEPLOYING, true);
                         deploy(task);
 
                         kubernetesService.waitForJobRunning(task.taskId(), settingsService.getReplicationFactor());
-                        updateTaskStatus(task, EvaluationStatus.RUNNING);
+                        updateTaskStatus(task.taskId(), EvaluationStatus.RUNNING, true);
 
                         final ExecutorCompletionService<Result> completionService = new ExecutorCompletionService<>(asyncEvaluatorExecutorService);
                         final Future<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback, completionService);
@@ -451,14 +457,10 @@ public class EvaluationService {
                             result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         }
 
-                        setEndTimestampNow(task);
+                        setEndTimestampNow(task.taskId());
 
                         evaluationFutures.remove(task.taskId());
-                        final EvaluationResultEntity resultEntity =
-                                evaluationResultRepository.findById(task.taskId()).orElseThrow();
-                        resultEntity.setStatus(result.getEvaluationStatus());
-                        resultEntity.setMessage(findLastMostImportantErrorEvent(task.taskId()));
-                        evaluationResultRepository.save(resultEntity);
+                        updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(), findLastMostImportantErrorEvent(task.taskId()), false);
 
                     } catch (final Exception e) {
                         log.error("Evaluation failed", e);
@@ -477,7 +479,7 @@ public class EvaluationService {
                         evaluationLock.release();
                         kubernetesService.deleteTask(task.taskId());
                         evaluationIdsToRunnables.remove(task.taskId());
-                        notifyView();
+                        notifyView(task.taskId());
                         this.cancelled = false;
                         this.failed = false;
                     }
@@ -493,28 +495,70 @@ public class EvaluationService {
             log.info("Evaluation thread with id {} stopped", Thread.currentThread().getId());
         }
 
-        private void updateTaskStatus(final EvaluationTask task, final EvaluationStatus evaluationStatus) {
-            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
-            evaluationResultEntity.setStatus(evaluationStatus);
-            evaluationResultRepository.save(evaluationResultEntity);
-            notifyView();
-        }
-
-        private void setStartTimestampNow(final EvaluationTask task) {
-            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
-            evaluationResultEntity.setStartTimestamp(ZonedDateTime.now());
-            evaluationResultRepository.save(evaluationResultEntity);
-        }
-
-        private void setEndTimestampNow(final EvaluationTask task) {
-            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(task.taskId()).orElseThrow();
-            evaluationResultEntity.setEndTimestamp(ZonedDateTime.now());
-            evaluationResultRepository.save(evaluationResultEntity);
-        }
 
         public void evaluationEventCallback(final EvaluationEvent result) {
             evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
         }
+    }
+
+    public synchronized void updateLogsAvailable(final String jobId) {
+        final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
+        if (evaluationResultEntityOptional.isEmpty()) {
+            return;
+        }
+
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultEntityOptional.get();
+
+        evaluationResultEntity.setLogsAvailable(true);
+        this.evaluationResultRepository.save(evaluationResultEntity);
+        this.notifyView(jobId);
+    }
+
+    public synchronized void updateResults(final String jobId, final String results) {
+        final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
+        if (evaluationResultEntityOptional.isEmpty()) {
+            return;
+        }
+
+        final ResultsEvaluation resultsEvaluation = areResultsCorrect(results);
+
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultEntityOptional.get();
+        evaluationResultEntity.setResultsAvailable(true);
+        evaluationResultEntity.setResultsCorrect(resultsEvaluation.correct());
+        evaluationResultEntity.setResultProportion(resultsEvaluation.resultProportion());
+        this.evaluationResultRepository.save(evaluationResultEntity);
+        this.notifyView(jobId);
+    }
+
+    public synchronized void updateTaskStatus(final String taskId, final EvaluationStatus evaluationStatus, final boolean notifyView) {
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        evaluationResultEntity.setStatus(evaluationStatus);
+        evaluationResultRepository.save(evaluationResultEntity);
+        if (notifyView) {
+            notifyView(taskId);
+        }
+    }
+
+    public synchronized void updateTaskStatusAndMessage(final String taskId, final EvaluationStatus evaluationStatus, String message, final boolean notifyView) {
+        final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        resultEntity.setStatus(evaluationStatus);
+        resultEntity.setMessage(message);
+        evaluationResultRepository.save(resultEntity);
+        if (notifyView) {
+            notifyView(taskId);
+        }
+    }
+
+    public synchronized void setStartTimestampNow(final String taskId) {
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        evaluationResultEntity.setStartTimestamp(ZonedDateTime.now());
+        evaluationResultRepository.save(evaluationResultEntity);
+    }
+
+    public synchronized void setEndTimestampNow(final String taskId) {
+        final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
+        evaluationResultEntity.setEndTimestamp(ZonedDateTime.now());
+        evaluationResultRepository.save(evaluationResultEntity);
     }
 
     private String findLastMostImportantErrorEvent(final String taskId) {
@@ -538,9 +582,12 @@ public class EvaluationService {
         }
     }
 
+    public void notifyView(final String taskId) {
+        activeEvaluationViewComponents.forEach(notifiableComponent -> notifiableComponent.dataChanged(taskId));
+    }
+
     public void notifyView() {
         activeEvaluationViewComponents.forEach(NotifiableComponent::dataChanged);
     }
-
 
 }

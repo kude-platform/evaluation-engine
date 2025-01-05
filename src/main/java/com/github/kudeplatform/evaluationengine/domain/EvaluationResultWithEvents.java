@@ -20,21 +20,27 @@ public class EvaluationResultWithEvents {
 
     private String gitBranch;
 
+    private String datasetName;
+
+    private String masterStartCommand;
+
+    private String firstWorkerStartCommand;
+
     private ZonedDateTime startTimestamp;
 
     private ZonedDateTime endTimestamp;
 
-    private int durationInSeconds;
+    private Integer durationInSeconds;
 
-    private int netDurationInSeconds;
+    private Integer netDurationInSeconds;
 
     private EvaluationStatus status;
 
-    private boolean logsAvailable;
+    private Boolean logsAvailable;
 
-    private boolean resultsAvailable;
+    private Boolean resultsAvailable;
 
-    private boolean resultsCorrect;
+    private Boolean resultsCorrect;
 
     private String resultProportion;
 

@@ -13,9 +13,11 @@ import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dependency.JsModule;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
+import com.vaadin.flow.component.grid.contextmenu.GridContextMenu;
 import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Hr;
@@ -44,6 +46,7 @@ import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -51,6 +54,7 @@ import java.util.UUID;
  */
 @Route(value = "/app/evaluation", layout = AppView.class)
 @Slf4j
+@JsModule("./copytoclipboard.js")
 public class EvaluationView extends VerticalLayout implements NotifiableComponent {
 
     private final EvaluationResultRepository evaluationResultRepository;
@@ -306,7 +310,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        this.update();
+        this.updateAll();
         synchronized (this.activeEvaluationViewComponents) {
             this.activeEvaluationViewComponents.add(this);
         }
@@ -368,7 +372,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isPending()) {
-                return null;
+                return new Span("");
             }
             Anchor anchor = new Anchor();
             anchor.setText("Performance Graphs");
@@ -410,7 +414,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 return span;
             }
             if (!item.getStatus().isRunning()) {
-                return null;
+                return new Span("");
             }
             final Span span = new Span();
             span.setText(String.valueOf(ChronoUnit.SECONDS.between(item.getStartTimestamp(), ZonedDateTime.now())));
@@ -425,7 +429,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 button.setDisableOnClick(true);
                 button.addClickListener(clickEvent -> {
                     this.evaluationService.deleteEvaluationTask(item.getTaskId());
-                    this.update();
+                    this.update(item.getTaskId());
                 });
                 return button;
             }
@@ -434,16 +438,17 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             button.setDisableOnClick(true);
             button.addClickListener(clickEvent -> {
                 this.evaluationService.cancelEvaluationTask(item.getTaskId(), true);
-                this.update();
+                this.update(item.getTaskId());
             });
             return button;
         })).setHeader("Action");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             final VerticalLayout layout = new VerticalLayout();
+            final String grafanaUrl = "http://" + settingsService.getGrafanaHost() + "/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0";
             final Anchor grafanaAnchor = new Anchor();
             grafanaAnchor.setText("Grafana");
-            grafanaAnchor.setHref("http://pi14.local:32300/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0");
+            grafanaAnchor.setHref(grafanaUrl);
             grafanaAnchor.setTarget("_blank");
             layout.add(grafanaAnchor);
 
@@ -469,7 +474,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 return new Span("Results not available");
             }
 
-            return null;
+            return new Span("");
         })).setHeader("Results");
 
         grid.addColumn(new ComponentRenderer<>(item -> {
@@ -486,21 +491,52 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
                 return status;
             }
 
-            return null;
+            return new Span("");
         })).setHeader("Results Status (correct/total/expected)");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
+        new EvaluationResultEntityContextMenu(grid);
         return grid;
     }
 
-    @Override
-    public void dataChanged() {
-        this.update();
+    private static class EvaluationResultEntityContextMenu extends GridContextMenu<EvaluationResultEntity> {
+        public EvaluationResultEntityContextMenu(Grid<EvaluationResultEntity> target) {
+            super(target);
+            addItem("Copy GIT URL to clipboard", e -> e.getItem().ifPresent(person -> {
+                UI.getCurrent().getPage().executeJs("window.copyToClipboard($0)", person.getGitUrl());
+            }));
+            addItem("Copy Task ID to clipboard", e -> e.getItem().ifPresent(person -> {
+                UI.getCurrent().getPage().executeJs("window.copyToClipboard($0)", person.getTaskId());
+            }));
+        }
     }
 
-    private void update() {
+    @Override
+    public synchronized void dataChanged() {
+        this.updateAll();
+    }
+
+    @Override
+    public synchronized void dataChanged(final String taskId) {
+        this.update(taskId);
+    }
+
+    private void update(final String taskId) {
+        final Optional<EvaluationResultEntity> evaluationResultEntity = evaluationResultRepository.findById(taskId);
+        if (evaluationResultEntity.isEmpty()) {
+            return;
+        }
+        getUI().ifPresent(ui -> ui.access(() -> {
+            if (this.grid.getListDataView().contains(evaluationResultEntity.get())) {
+                this.grid.getListDataView().refreshItem(evaluationResultEntity.get());
+            } else {
+                this.grid.setItems(evaluationResultRepository.findAll());
+            }
+        }));
+    }
+
+    private void updateAll() {
         getUI().ifPresent(ui -> ui.access(() -> this.grid.setItems(evaluationResultRepository.findAll())));
     }
-
 
 }
