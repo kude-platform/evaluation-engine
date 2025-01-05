@@ -6,12 +6,10 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepo
 import com.github.kudeplatform.evaluationengine.service.KubernetesService;
 import com.github.kudeplatform.evaluationengine.service.KubernetesStatus;
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
-import com.google.gson.Gson;
 import io.kubernetes.client.openapi.ApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -35,23 +33,17 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
     KubernetesService kubernetesService;
 
     @Autowired
-    Gson gson;
-
-    @Autowired
     SettingsService settingsService;
 
     @Autowired
     EvaluationResultRepository evaluationResultRepository;
-
-    @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
-    private String useWatchToDetectCompletion;
 
     private boolean useWatchToDetectCompletionAsBoolean;
 
     @PostConstruct
     public void init() {
         try {
-            useWatchToDetectCompletionAsBoolean = Boolean.parseBoolean(useWatchToDetectCompletion);
+            useWatchToDetectCompletionAsBoolean = Boolean.parseBoolean(settingsService.getUseWatchToDetectCompletion());
         } catch (final Exception e) {
             useWatchToDetectCompletionAsBoolean = false;
         }
@@ -82,7 +74,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             }
 
             log.error("Error while evaluating task: {}", evaluationTask.taskId(), e);
-            final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(), EvaluationStatus.FAILED, e.getMessage(), "", "");
+            final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(), EvaluationStatus.FAILED, e.getMessage(), "", "", EvaluationEvent.LEVEL_ERROR);
             results.add(finalErrorResult);
             updateCallback.accept(finalErrorResult);
             return new SingleEvaluationResult(evaluationTask,
@@ -96,13 +88,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             return new SingleEvaluationResult(evaluationTask, evaluationStatus, results);
         }
 
-        final EvaluationEvent finalResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                evaluationStatus, "Evaluation finished.", "", "");
-        results.add(finalResult);
-        updateCallback.accept(finalResult);
-        return new SingleEvaluationResult(evaluationTask,
-                evaluationStatus,
-                results);
+        return new SingleEvaluationResult(evaluationTask, evaluationStatus, results);
     }
 
     private Result evaluateWithPolling(final EvaluationTask evaluationTask, final Consumer<EvaluationEvent> updateCallback) {
@@ -120,7 +106,7 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
                 }
             } catch (final ApiException e) {
                 final EvaluationEvent finalErrorResult = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        EvaluationStatus.FAILED, e.getMessage(), "", "");
+                        EvaluationStatus.FAILED, e.getMessage(), "", "", EvaluationEvent.LEVEL_ERROR);
                 results.add(finalErrorResult);
                 updateCallback.accept(finalErrorResult);
                 return new SingleEvaluationResult(evaluationTask,
@@ -136,10 +122,6 @@ public class EvaluationFinishedEvaluator extends SimpleEvaluator {
             }
 
             if (evaluationStatus.isFinal()) {
-                final EvaluationEvent evaluationEvent = new EvaluationEvent(evaluationTask.taskId(), ZonedDateTime.now(),
-                        evaluationStatus, "Evaluation finished.", "", "");
-                results.add(evaluationEvent);
-                updateCallback.accept(evaluationEvent);
                 break;
             }
 

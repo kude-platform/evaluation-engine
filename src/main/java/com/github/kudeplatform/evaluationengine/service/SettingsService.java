@@ -4,8 +4,10 @@ import com.github.kudeplatform.evaluationengine.persistence.SettingsEntity;
 import com.github.kudeplatform.evaluationengine.persistence.SettingsRepository;
 import io.kubernetes.client.openapi.ApiException;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -43,6 +45,14 @@ public class SettingsService {
     private final SettingsRepository settingsRepository;
 
     private final KubernetesService kubernetesService;
+
+    @Getter
+    @Value("${PROMETHEUS_HOST:pi14.local:30103}")
+    private String prometheusHost;
+
+    @Getter
+    @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
+    private String useWatchToDetectCompletion;
 
     @PostConstruct
     public void init() {
@@ -103,7 +113,7 @@ public class SettingsService {
     }
 
     public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.3.6");
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.7");
     }
 
     public void setEvaluationImage(final String evaluationImage) {

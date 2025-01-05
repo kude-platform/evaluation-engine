@@ -7,7 +7,6 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepos
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
-import com.github.kudeplatform.evaluationengine.service.TextService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_ERROR;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_FATAL;
 
 /**
  * @author timo.buechert
@@ -34,8 +36,6 @@ public class AlertController {
     private final EvaluationEventRepository evaluationEventRepository;
 
     private final EvaluationService evaluationService;
-
-    private final TextService textService;
 
     private final EvaluationEventMapper evaluationEventMapper;
 
@@ -120,7 +120,7 @@ public class AlertController {
         }
 
         final EvaluationEvent evaluationEvent = new EvaluationEvent(evaluationId, ZonedDateTime.now(), EvaluationStatus.FAILED,
-                (String) alert.getAnnotations().get("description"), "all", "LOW_CPU_USAGE_ON_ONE_INSTANCE");
+                (String) alert.getAnnotations().get("description"), "all", "LOW_CPU_USAGE_ON_ONE_INSTANCE", LEVEL_ERROR);
         this.evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
     }
 
@@ -132,18 +132,11 @@ public class AlertController {
             return;
         }
 
-        final EvaluationResultEntity entity = evaluationResultEntity.get();
-
         final EvaluationEvent evaluationEvent = new EvaluationEvent(evaluationId, ZonedDateTime.now(), EvaluationStatus.FAILED,
-                (String) alert.getAnnotations().get("description"), "all", "LOW_CPU_USAGE_ON_ALL_INSTANCES");
+                (String) alert.getAnnotations().get("description"), "all", "LOW_CPU_USAGE_ON_ALL_INSTANCES", LEVEL_FATAL);
         this.evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
 
-        this.evaluationService.cancelEvaluationTask(evaluationId, false);
-
-        entity.setStatus(EvaluationStatus.FAILED);
-        entity.setMessage(textService.getText("evaluation.metrics.cpu.usage.all.nodes"));
-        this.evaluationResultRepository.save(entity);
-        this.evaluationService.notifyView();
+        this.evaluationService.failEvaluationTask(evaluationId, true);
     }
 
 

@@ -35,6 +35,8 @@ public class EvaluationEventEntity {
     @Lob
     private String message;
 
-    private String category;
+    private String type;
+
+    private String level;
     
 }

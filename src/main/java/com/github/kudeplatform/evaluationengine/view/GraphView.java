@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.view;
 
+import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Hr;
@@ -12,6 +13,7 @@ import com.vaadin.flow.router.BeforeEvent;
 import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.OptionalParameter;
 import com.vaadin.flow.router.Route;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /**
  * @author timo.buechert
@@ -21,7 +23,7 @@ public class GraphView extends VerticalLayout implements HasUrlParameter<String>
 
     private final TextField jobId = new TextField("Job ID");
 
-    private final TextField prometheusHost = new TextField("Prometheus Host", "pi14.local:30103", "");
+    private final TextField prometheusHost = new TextField("Prometheus Host");
 
     private final Select<String> select = new Select<>();
 
@@ -29,9 +31,12 @@ public class GraphView extends VerticalLayout implements HasUrlParameter<String>
 
     private final Button loadButton;
 
-    public GraphView() {
+    @Autowired
+    public GraphView(final SettingsService settingsService) {
         final H2 title = new H2("Performance Graphs");
         this.add(title);
+
+        prometheusHost.setValue(settingsService.getPrometheusHost());
 
         select.setLabel("Metric");
         select.setItems("mem", "cpu");

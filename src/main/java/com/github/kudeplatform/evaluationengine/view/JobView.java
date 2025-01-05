@@ -61,18 +61,16 @@ public class JobView extends VerticalLayout implements HasUrlParameter<String>, 
         this.grid = new Grid<>(EvaluationEventEntity.class, false);
         grid.addColumn(EvaluationEventEntity::getIndex).setHeader("Instance Index");
         grid.addColumn(evaluationResultEntity -> dateTimeFormatter.format(evaluationResultEntity.getTimestamp())).setHeader("Timestamp");
-        grid.addColumn(EvaluationEventEntity::getCategory).setHeader("Category");
-        grid.addColumn(evaluationEventEntity -> hintsService.getHintForCategory(evaluationEventEntity.getCategory())).setHeader("Hint");
+        grid.addColumn(EvaluationEventEntity::getType).setHeader("Type");
         grid.addColumn(EvaluationEventEntity::getMessage).setHeader("Message");
+        grid.addColumn(evaluationEventEntity -> hintsService.getHintForCategory(evaluationEventEntity.getType())).setHeader("Hint");
 
         grid.addThemeVariants(GridVariant.LUMO_WRAP_CELL_CONTENT);
         this.add(grid);
     }
 
     public void update() {
-        getUI().ifPresent(ui -> ui.access(() -> {
-            this.grid.setItems(this.evaluationEventRepository.findByTaskId(this.jobName));
-        }));
+        getUI().ifPresent(ui -> ui.access(() -> this.grid.setItems(this.evaluationEventRepository.findByTaskId(this.jobName))));
     }
 
 

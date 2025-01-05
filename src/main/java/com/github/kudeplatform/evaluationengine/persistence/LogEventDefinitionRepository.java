@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 /**
  * @author timo.buechert
  */
-public interface ErrorEventDefinitionRepository extends JpaRepository<ErrorEventDefinitionEntity, Long> {
+public interface LogEventDefinitionRepository extends JpaRepository<LogEventDefinitionEntity, Long> {
 }

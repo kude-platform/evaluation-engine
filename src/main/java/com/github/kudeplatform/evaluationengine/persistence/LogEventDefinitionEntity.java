@@ -14,16 +14,16 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ErrorEventDefinitionEntity {
+public class LogEventDefinitionEntity {
 
     @Id
     @GeneratedValue
     private Long id;
 
-    private String category;
+    private String type;
 
-    private String errorPatterns;
+    private String patterns;
 
-    private boolean fatal;
+    private String level;
 
 }

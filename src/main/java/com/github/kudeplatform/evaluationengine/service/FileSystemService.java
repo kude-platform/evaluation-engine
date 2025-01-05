@@ -13,21 +13,17 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.IOUtils;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
-import static java.nio.file.StandardOpenOption.WRITE;
+import static java.nio.file.StandardOpenOption.*;
 
 /**
  * @author timo.buechert
@@ -94,8 +90,8 @@ public class FileSystemService {
                 evaluationResultWithEvents.getName(),
                 evaluationResultWithEvents.getGitUrl(),
                 evaluationResultWithEvents.getGitBranch(),
-                evaluationResultWithEvents.getStartTimestamp().toString(),
-                evaluationResultWithEvents.getEndTimestamp().toString(),
+                Optional.ofNullable(evaluationResultWithEvents.getStartTimestamp()).map(Objects::toString).orElse(""),
+                Optional.ofNullable(evaluationResultWithEvents.getEndTimestamp()).map(Objects::toString).orElse(""),
                 String.valueOf(evaluationResultWithEvents.getDurationInSeconds()),
                 String.valueOf(evaluationResultWithEvents.getNetDurationInSeconds()),
                 evaluationResultWithEvents.getStatus().name(),

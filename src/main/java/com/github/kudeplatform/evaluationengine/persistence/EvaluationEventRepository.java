@@ -11,9 +11,9 @@ public interface EvaluationEventRepository extends JpaRepository<EvaluationEvent
 
     List<EvaluationEventEntity> findByTaskId(String taskid);
 
-    List<EvaluationEventEntity> findByTaskIdAndCategoryAndIndex(String taskid, String category, String index);
+    List<EvaluationEventEntity> findByTaskIdAndTypeAndIndex(String taskid, String type, String index);
 
-    List<EvaluationEventEntity> findByTaskIdAndCategory(String taskid, String category);
+    List<EvaluationEventEntity> findByTaskIdAndType(String taskid, String type);
 
     void deleteByTaskId(String taskid);
     

@@ -23,7 +23,7 @@ class EvaluationServiceTest {
     @Test
     void areResultsCorrect() {
         // given
-        final EvaluationService evaluationService = new EvaluationService(null, null, null, null, null, null, null, settingsService, null, null, null, null, List.of());
+        final EvaluationService evaluationService = new EvaluationService(null, null, null, null, null, null, null, settingsService, null, null, null, List.of());
         final String solution = """
                 tpch_customer -> tpch_orders: [C_COMMENT, C_COMMENT] c [O_TOTALPRICE, O_ORDERPRIORITY]
                 tpch_part -> tpch_lineitem: [P_COMMENT, P_TYPE] c [L_LINENUMBER, L_LINESTATUS]
@@ -61,7 +61,7 @@ class EvaluationServiceTest {
     @Test
     void areResultsCorrect_oneMissing() {
         // given
-        final EvaluationService evaluationService = new EvaluationService(null, null, null, null, null, null, null, settingsService, null, null, null, null, List.of());
+        final EvaluationService evaluationService = new EvaluationService(null, null, null, null, null, null, null, settingsService, null, null, null, List.of());
         final String solution = """
                 tpch_customer -> tpch_orders: [C_COMMENT, C_COMMENT] c [O_TOTALPRICE, O_ORDERPRIORITY]
                 tpch_part -> tpch_lineitem: [P_COMMENT, P_TYPE] c [L_LINENUMBER, L_LINESTATUS]

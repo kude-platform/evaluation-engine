@@ -10,12 +10,12 @@ import java.util.List;
  */
 @Data
 @Builder
-public class ErrorEventDefinition {
+public class LogEventDefinition {
 
-    private String category;
+    private String type;
 
-    private List<String> errorPatterns;
+    private List<String> patterns;
 
-    private boolean fatal;
+    private String level;
 
 }

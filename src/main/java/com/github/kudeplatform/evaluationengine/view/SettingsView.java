@@ -1,13 +1,12 @@
 package com.github.kudeplatform.evaluationengine.view;
 
-import com.github.kudeplatform.evaluationengine.persistence.ErrorEventDefinitionEntity;
-import com.github.kudeplatform.evaluationengine.persistence.ErrorEventDefinitionRepository;
+import com.github.kudeplatform.evaluationengine.persistence.LogEventDefinitionEntity;
+import com.github.kudeplatform.evaluationengine.persistence.LogEventDefinitionRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
 import com.github.kudeplatform.evaluationengine.service.SettingsService;
 import com.vaadin.flow.component.Key;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -21,6 +20,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
@@ -34,6 +34,8 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.*;
+
 /**
  * @author timo.buechert
  */
@@ -44,7 +46,7 @@ public class SettingsView extends VerticalLayout {
 
     final EvaluationService evaluationService;
 
-    final ErrorEventDefinitionRepository errorEventDefinitionRepository;
+    final LogEventDefinitionRepository logEventDefinitionRepository;
 
     final TextField timeoutInSeconds;
 
@@ -74,7 +76,7 @@ public class SettingsView extends VerticalLayout {
     final Button saveExpectedSolutionButton = new Button("Save");
 
 
-    final Grid<ErrorEventDefinitionEntity> grid;
+    final Grid<LogEventDefinitionEntity> grid;
 
     String timeoutInSecondsValue = "";
 
@@ -97,14 +99,14 @@ public class SettingsView extends VerticalLayout {
     String memoryLimitValue = "";
 
 
-    List<Binder> binders = new ArrayList<>();
+    List<Binder<?>> binders = new ArrayList<>();
 
     @Autowired
     public SettingsView(final SettingsService settingsService, final EvaluationService evaluationService,
-                        final ErrorEventDefinitionRepository errorEventDefinitionRepository) {
+                        final LogEventDefinitionRepository logEventDefinitionRepository) {
         this.settingsService = settingsService;
         this.evaluationService = evaluationService;
-        this.errorEventDefinitionRepository = errorEventDefinitionRepository;
+        this.logEventDefinitionRepository = logEventDefinitionRepository;
         final H2 title = new H2("App Settings");
         this.add(title);
 
@@ -150,71 +152,69 @@ public class SettingsView extends VerticalLayout {
 
         this.add(new Hr());
 
-        final H3 errorEventDefinitionsTitle = new H3("Error Event Definitions");
+        final H3 errorEventDefinitionsTitle = new H3("Log Event Definitions");
         this.add(errorEventDefinitionsTitle);
 
-        final Span errorEventDefinitionsDescription = new Span("Define error event definitions to categorize error events and mark them as fatal" +
-                "or non-fatal. Error patterns are comma-separated strings that are used to match error messages. The error will be updated in the " +
-                "log-analyzer edge-nodes periodically.");
+        final Span errorEventDefinitionsDescription = new Span("Define log event definitions to define log events and categorize their level. " +
+                "Patterns are comma-separated strings that are used to match log messages. The definitions will be updated in the log-analyzer edge-nodes periodically.");
 
         this.add(errorEventDefinitionsDescription);
 
-        // Dialog to add new error event definitions
-        Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("New Error Event Definition");
-        TextField modalCategoryField = new TextField("Category");
-        TextField modalErrorPatternsField = new TextField("Error patterns");
-        Checkbox modalFatalCheckbox = new Checkbox("Fatal");
+        final Dialog newEventDefinitionDialog = new Dialog();
+        newEventDefinitionDialog.setHeaderTitle("New Log Event Definition");
+        TextField modalTypeField = new TextField("Type");
+        TextField modalErrorPatternsField = new TextField("Patterns");
+        Select<String> modalLevelSelect = createLevelSelect();
 
-        VerticalLayout dialogLayout = new VerticalLayout(modalCategoryField,
-                modalErrorPatternsField, modalFatalCheckbox);
+        VerticalLayout dialogLayout = new VerticalLayout(modalTypeField,
+                modalErrorPatternsField, modalLevelSelect);
         dialogLayout.setAlignItems(FlexComponent.Alignment.STRETCH);
         dialogLayout.getStyle().set("width", "18rem").set("max-width", "100%");
-        dialog.add(dialogLayout);
+        newEventDefinitionDialog.add(dialogLayout);
 
         Button modalSaveButton = new Button("Add", e -> {
-            ErrorEventDefinitionEntity errorEventDefinitionEntity = new ErrorEventDefinitionEntity();
-            errorEventDefinitionEntity.setCategory(modalCategoryField.getValue());
-            errorEventDefinitionEntity.setErrorPatterns(modalErrorPatternsField.getValue());
-            errorEventDefinitionEntity.setFatal(modalFatalCheckbox.getValue());
-            this.errorEventDefinitionRepository.save(errorEventDefinitionEntity);
+            LogEventDefinitionEntity logEventDefinitionEntity = new LogEventDefinitionEntity();
+            logEventDefinitionEntity.setType(modalTypeField.getValue());
+            logEventDefinitionEntity.setPatterns(modalErrorPatternsField.getValue());
+            logEventDefinitionEntity.setLevel(modalLevelSelect.getValue());
+            this.logEventDefinitionRepository.save(logEventDefinitionEntity);
             this.updateGrid();
-            dialog.close();
+            newEventDefinitionDialog.close();
         });
         modalSaveButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        Button modalCancelButton = new Button("Cancel", e -> dialog.close());
-        dialog.getFooter().add(modalCancelButton);
-        dialog.getFooter().add(modalSaveButton);
-        Button modalShowModalButton = new Button("New item", e -> dialog.open());
-        add(dialog, modalShowModalButton);
+        Button modalCancelButton = new Button("Cancel", e -> newEventDefinitionDialog.close());
+        newEventDefinitionDialog.getFooter().add(modalCancelButton);
+        newEventDefinitionDialog.getFooter().add(modalSaveButton);
+        Button modalShowModalButton = new Button("New item", e -> newEventDefinitionDialog.open());
+        add(newEventDefinitionDialog, modalShowModalButton);
 
         // Grid to display error event definitions
         ValidationMessage categoryValidationMessage = new ValidationMessage();
         ValidationMessage errorPatternsValidationMessage = new ValidationMessage();
 
-        grid = new Grid<>(ErrorEventDefinitionEntity.class, false);
-        final Editor<ErrorEventDefinitionEntity> editor = grid.getEditor();
+        grid = new Grid<>(LogEventDefinitionEntity.class, false);
+        final Editor<LogEventDefinitionEntity> editor = grid.getEditor();
 
-        Grid.Column<ErrorEventDefinitionEntity> categoryColumn = grid
-                .addColumn(ErrorEventDefinitionEntity::getCategory).setHeader("Category")
+        Grid.Column<LogEventDefinitionEntity> categoryColumn = grid
+                .addColumn(LogEventDefinitionEntity::getType).setHeader("Category")
                 .setWidth("40%").setFlexGrow(0);
-        Grid.Column<ErrorEventDefinitionEntity> errorPatternsColumn = grid
-                .addColumn(ErrorEventDefinitionEntity::getErrorPatterns)
+        Grid.Column<LogEventDefinitionEntity> errorPatternsColumn = grid
+                .addColumn(LogEventDefinitionEntity::getPatterns)
                 .setHeader("Error patterns").setWidth("40%").setFlexGrow(0);
 
-        Grid.Column<ErrorEventDefinitionEntity> fatalColumn = grid
-                .addComponentColumn(errorEventDefinitionEntity -> {
-                    final Checkbox fatalCheckbox = new Checkbox();
-                    fatalCheckbox.setValue(errorEventDefinitionEntity.isFatal());
-                    fatalCheckbox.setEnabled(false);
-                    return fatalCheckbox;
-                }).setHeader("Fatal").setWidth("5%").setFlexGrow(0);
+        Grid.Column<LogEventDefinitionEntity> levelColumn = grid
+                .addComponentColumn(logEventDefinitionEntity -> {
+                    final Select<String> select = createLevelSelect();
+                    select.setValue(logEventDefinitionEntity.getLevel());
+                    select.setEnabled(false);
+                    return select;
+                }).setHeader("Level").setWidth("5%").setFlexGrow(0);
 
-        Grid.Column<ErrorEventDefinitionEntity> editColumn = grid.addComponentColumn(ErrorEventDefinitionEntity -> {
+        Grid.Column<LogEventDefinitionEntity> editColumn = grid.addComponentColumn(LogEventDefinitionEntity -> {
             final HorizontalLayout actions = new HorizontalLayout();
             final Button deleteButton = new Button("Delete");
             deleteButton.addClickListener(e -> {
-                this.errorEventDefinitionRepository.delete(ErrorEventDefinitionEntity);
+                this.logEventDefinitionRepository.delete(LogEventDefinitionEntity);
                 this.updateGrid();
             });
             actions.add(deleteButton);
@@ -222,13 +222,13 @@ public class SettingsView extends VerticalLayout {
             editButton.addClickListener(e -> {
                 if (editor.isOpen())
                     editor.cancel();
-                grid.getEditor().editItem(ErrorEventDefinitionEntity);
+                grid.getEditor().editItem(LogEventDefinitionEntity);
             });
             actions.add(editButton);
             return actions;
         }).setWidth("15%").setFlexGrow(0);
 
-        Binder<ErrorEventDefinitionEntity> binder = new Binder<>(ErrorEventDefinitionEntity.class);
+        Binder<LogEventDefinitionEntity> binder = new Binder<>(LogEventDefinitionEntity.class);
         editor.setBinder(binder);
         editor.setBuffered(true);
 
@@ -237,21 +237,21 @@ public class SettingsView extends VerticalLayout {
         binder.forField(categoryField)
                 .asRequired("Category must not be empty")
                 .withStatusLabel(categoryValidationMessage)
-                .bind(ErrorEventDefinitionEntity::getCategory, ErrorEventDefinitionEntity::setCategory);
+                .bind(LogEventDefinitionEntity::getType, LogEventDefinitionEntity::setType);
         categoryColumn.setEditorComponent(categoryField);
 
         TextField errorPatternsField = new TextField();
         errorPatternsField.setWidthFull();
         binder.forField(errorPatternsField).asRequired("Error patterns must not be empty")
                 .withStatusLabel(errorPatternsValidationMessage)
-                .bind(ErrorEventDefinitionEntity::getErrorPatterns, ErrorEventDefinitionEntity::setErrorPatterns);
+                .bind(LogEventDefinitionEntity::getPatterns, LogEventDefinitionEntity::setPatterns);
         errorPatternsColumn.setEditorComponent(errorPatternsField);
 
-        Checkbox fatalCheckbox = new Checkbox();
-        fatalCheckbox.setWidthFull();
-        binder.forField(fatalCheckbox)
-                .bind(ErrorEventDefinitionEntity::isFatal, ErrorEventDefinitionEntity::setFatal);
-        fatalColumn.setEditorComponent(fatalCheckbox);
+        final Select<String> select = createLevelSelect();
+        select.setWidthFull();
+        binder.forField(select)
+                .bind(LogEventDefinitionEntity::getLevel, LogEventDefinitionEntity::setLevel);
+        levelColumn.setEditorComponent(select);
 
         Button saveButton = new Button("Save", e -> editor.save());
         Button cancelButton = new Button(VaadinIcon.CLOSE.create(),
@@ -264,11 +264,17 @@ public class SettingsView extends VerticalLayout {
         editColumn.setEditorComponent(actions);
 
         editor.addSaveListener(e -> {
-            this.errorEventDefinitionRepository.save(e.getItem());
-            grid.setItems(this.errorEventDefinitionRepository.findAll());
+            this.logEventDefinitionRepository.save(e.getItem());
+            grid.setItems(this.logEventDefinitionRepository.findAll());
         });
 
         this.add(grid, categoryValidationMessage, errorPatternsValidationMessage);
+    }
+
+    private static Select<String> createLevelSelect() {
+        final Select<String> select = new Select<>();
+        select.setItems(LEVEL_INFO, LEVEL_WARNING, LEVEL_ERROR, LEVEL_FATAL);
+        return select;
     }
 
     @PostConstruct
@@ -385,29 +391,30 @@ public class SettingsView extends VerticalLayout {
         });
         this.saveButton.addClickShortcut(Key.ENTER);
 
-        this.addInitialErrorEventDefinitions();
+        this.addInitialLogEventDefinitions();
         this.updateGrid();
     }
 
     private void updateGrid() {
-        grid.setItems(this.errorEventDefinitionRepository.findAll());
+        grid.setItems(this.logEventDefinitionRepository.findAll());
     }
 
-    private void addInitialErrorEventDefinitions() {
-        final List<ErrorEventDefinitionEntity> initialErrorEventDefinitions = List.of(
-
-                new ErrorEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", false),
-                new ErrorEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", false),
-                new ErrorEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", false),
-                new ErrorEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", false),
-                new ErrorEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", true),
-                new ErrorEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", false),
-                new ErrorEventDefinitionEntity(null, "Message too large", "Failed to serialize oversized message", false)
+    private void addInitialLogEventDefinitions() {
+        final List<LogEventDefinitionEntity> initialLogEventDefinitions = List.of(
+                new LogEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", LEVEL_WARNING),
+                new LogEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", LEVEL_WARNING),
+                new LogEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "FAILED_TO_SERIALIZE_OVERSIZED_MESSAGE", "Failed to serialize oversized message", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "CLASS_NOT_FOUND", "ClassNotFoundException", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "ILLEGAL_ARGUMENT", "IllegalArgumentException", LEVEL_FATAL)
         );
 
-        final List<ErrorEventDefinitionEntity> errorEventDefinitions = this.errorEventDefinitionRepository.findAll();
-        if (errorEventDefinitions.isEmpty()) {
-            this.errorEventDefinitionRepository.saveAll(initialErrorEventDefinitions);
+        final List<LogEventDefinitionEntity> logEventDefinitions = this.logEventDefinitionRepository.findAll();
+        if (logEventDefinitions.isEmpty()) {
+            this.logEventDefinitionRepository.saveAll(initialLogEventDefinitions);
         }
     }
 
