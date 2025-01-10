@@ -1,7 +1,11 @@
 package com.github.kudeplatform.evaluationengine.persistence;
 
 import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
-import jakarta.persistence.*;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Lob;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -48,9 +52,6 @@ public class EvaluationResultEntity {
     private String masterStartCommand;
 
     private String firstWorkerStartCommand;
-
-    @ElementCollection(fetch = FetchType.EAGER)
-    private List<Integer> podIndicesReadyToRun;
 
     @ElementCollection(fetch = FetchType.EAGER)
     private List<Integer> podIndicesCompleted;

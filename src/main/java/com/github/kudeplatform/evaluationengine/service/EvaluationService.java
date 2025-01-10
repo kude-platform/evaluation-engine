@@ -4,7 +4,15 @@ import com.github.kudeplatform.evaluationengine.api.Event;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.EvaluationFinishedEvaluator;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
-import com.github.kudeplatform.evaluationengine.domain.*;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
+import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
+import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
+import com.github.kudeplatform.evaluationengine.domain.Repository;
+import com.github.kudeplatform.evaluationengine.domain.Result;
+import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
+import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
@@ -26,8 +34,23 @@ import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.Duration;
 import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
@@ -79,6 +102,8 @@ public class EvaluationService {
 
     @Getter
     private int numberOfNodes;
+
+    private final HashMap<String, List<Integer>> podIndicesReadyToRun = new HashMap<>();
 
     @PostConstruct
     @Transactional
@@ -139,19 +164,22 @@ public class EvaluationService {
         resultEntity.setMessage(findLastMostImportantErrorEvent(ingestedEvent.getEvaluationId()));
 
         if (event.getType().equals("BUILD_COMPLETED")) {
-            resultEntity.getPodIndicesReadyToRun().add(Integer.parseInt(ingestedEvent.getIndex()));
-            evaluationResultRepository.save(resultEntity);
+            synchronized (podIndicesReadyToRun) {
+                podIndicesReadyToRun.get(ingestedEvent.getEvaluationId()).add(Integer.parseInt(ingestedEvent.getIndex()));
+            }
+
         }
 
         if (event.getType().equals("JOB_COMPLETED")) {
             resultEntity.getPodIndicesCompleted().add(Integer.parseInt(ingestedEvent.getIndex()));
             resultEntity.setNetEvaluationDurationInSeconds(event.getDurationInSeconds());
-            evaluationResultRepository.save(resultEntity);
 
             if (!useWatchToDetectCompletionAsBoolean) {
                 evaluationFinishedEvaluator.notifyEvaluationFinished();
             }
         }
+        evaluationResultRepository.save(resultEntity);
+
         notifyView(ingestedEvent.getEvaluationId());
     }
 
@@ -165,8 +193,7 @@ public class EvaluationService {
     }
 
     public boolean areAllPodsReadyToRun(final String taskId) {
-        final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
-        return resultEntity.getPodIndicesReadyToRun().size() == settingsService.getReplicationFactor();
+        return podIndicesReadyToRun.containsKey(taskId) && podIndicesReadyToRun.get(taskId).size() == settingsService.getReplicationFactor();
     }
 
     public boolean isNoJobRunning() {
@@ -418,6 +445,7 @@ public class EvaluationService {
 
                     EvaluationTask task = evaluationTaskQueue.take();
                     evaluationIdsToRunnables.put(task.taskId(), this);
+                    podIndicesReadyToRun.put(task.taskId(), new ArrayList<>());
 
                     try {
                         evaluationLock.acquire();
@@ -480,6 +508,7 @@ public class EvaluationService {
                         notifyView(task.taskId());
                         this.cancelled = false;
                         this.failed = false;
+                        podIndicesReadyToRun.remove(task.taskId());
                     }
 
                 }
