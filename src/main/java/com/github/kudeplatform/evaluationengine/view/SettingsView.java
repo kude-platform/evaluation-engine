@@ -34,7 +34,10 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.*;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_ERROR;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_FATAL;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_INFO;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_WARNING;
 
 /**
  * @author timo.buechert
@@ -403,14 +406,15 @@ public class SettingsView extends VerticalLayout {
         final List<LogEventDefinitionEntity> initialLogEventDefinitions = List.of(
                 new LogEventDefinitionEntity(null, "CONNECTION_PROBLEM", "ConnectException, StreamTcpException, Couldn't join seed nodes", LEVEL_WARNING),
                 new LogEventDefinitionEntity(null, "MISSING_HANDLE", "dead letters encountered", LEVEL_WARNING),
-                new LogEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", LEVEL_ERROR),
-                new LogEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds,IndexOutOfBoundsException", LEVEL_ERROR),
-                new LogEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", LEVEL_ERROR),
-                new LogEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "FAILED_TO_SERIALIZE_OVERSIZED_MESSAGE", "Failed to serialize oversized message", LEVEL_ERROR),
+                new LogEventDefinitionEntity(null, "NULL_POINTER_EXCEPTION", "NullPointerException,NPE", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "ARRAY_INDEX_OUT_OF_BOUNDS_EXCEPTION", "ArrayIndexOutOfBoundsException,ArrayIndexOutOfBounds,IndexOutOfBoundsException", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "CLASS_CAST_EXCEPTION", "ClassCastException, ClassCast", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "OUT_OF_MEMORY", "OutOfMemoryError", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "CLASS_NOT_FOUND", "ClassNotFoundException", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "ILLEGAL_ARGUMENT", "IllegalArgumentException", LEVEL_FATAL),
-                new LogEventDefinitionEntity(null, "DEFAULT_PRESS_ENTER_TO_EXIT_NOT_REMOVED", "Press ENTER to exit", LEVEL_FATAL)
+                new LogEventDefinitionEntity(null, "DEFAULT_PRESS_ENTER_TO_EXIT_NOT_REMOVED", "Press ENTER to exit", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "FILE_NOT_FOUND_EXCEPTION", "FileNotFoundException", LEVEL_FATAL)
         );
 
         final List<LogEventDefinitionEntity> logEventDefinitions = this.logEventDefinitionRepository.findAll();
