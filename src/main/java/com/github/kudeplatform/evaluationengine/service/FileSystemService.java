@@ -2,6 +2,7 @@ package com.github.kudeplatform.evaluationengine.service;
 
 import com.github.kudeplatform.evaluationengine.domain.Dataset;
 import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
+import com.github.kudeplatform.evaluationengine.domain.Repository;
 import com.github.kudeplatform.evaluationengine.mapper.DatasetMapper;
 import com.github.kudeplatform.evaluationengine.mapper.DatasetMapperImpl;
 import com.github.kudeplatform.evaluationengine.persistence.DatasetEntity;
@@ -10,7 +11,10 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -21,6 +25,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static java.nio.file.StandardOpenOption.*;
@@ -38,6 +43,14 @@ public class FileSystemService {
             System.getProperty("java.io.tmpdir") + File.separator + KUDE_TMP_FOLDER_NAME + File.separator;
 
     public static final String KUDE_DATA_PATH = System.getProperty("user.home") + File.separator + "kude-data" + File.separator;
+
+    public static final String KUDE_PLAGIARISM_PATH = System.getProperty("user.home") + File.separator + "kude-plagiarism" + File.separator;
+
+    public static final String KUDE_SUBMISSIONS_PATH = System.getProperty("java.io.tmpdir") + File.separator + "kude-submissions" + File.separator;
+
+    public static final String KUDE_PLAGIARISM_RESULTS_FILE = "kude-plagiarism-results.zip";
+
+    public static final String KUDE_PLAGIARISM_RESULTS_PATH = KUDE_PLAGIARISM_PATH + KUDE_PLAGIARISM_RESULTS_FILE;
 
     private final DatasetRepository datasetRepository;
 
@@ -60,6 +73,12 @@ public class FileSystemService {
         if (!kudeDataFolder.exists() && !kudeDataFolder.mkdirs()) {
             log.error("Failed to create KUDE data folder.");
             throw new RuntimeException("Failed to create KUDE data folder. Cannot continue.");
+        }
+
+        final File kudeSubmissionsFolder = new File(KUDE_SUBMISSIONS_PATH);
+        if (!kudeSubmissionsFolder.exists() && !kudeSubmissionsFolder.mkdirs()) {
+            log.error("Failed to create KUDE submissions folder.");
+            throw new RuntimeException("Failed to create KUDE submissions folder. Cannot continue.");
         }
 
         this.initializeDatasetRepository();
@@ -160,5 +179,61 @@ public class FileSystemService {
 
     private String getDatasetName(final String fileName) {
         return fileName.substring(fileName.lastIndexOf('/') + 1, fileName.lastIndexOf('.'));
+    }
+
+    public void cloneRepositories(final List<Repository> repositories, final Consumer<String> statusCallback) {
+        final File kudeSubmissionsFolder = new File(KUDE_SUBMISSIONS_PATH);
+        if (!kudeSubmissionsFolder.exists() && !kudeSubmissionsFolder.mkdirs()) {
+            log.error("Failed to create KUDE submissions folder.");
+            throw new RuntimeException("Failed to create KUDE submissions folder. Cannot continue.");
+        }
+
+        int count = 0;
+        for (final Repository repository : repositories) {
+            try (Git git = Git.cloneRepository()
+                    .setURI(repository.getRepositoryUrlWithCredentials())
+                    .setDirectory(new File(KUDE_SUBMISSIONS_PATH + repository.name()))
+                    .call()) {
+            } catch (final InvalidRemoteException e) {
+                log.error("Could not clone repository {}. The error was: {}", repository.url(), e.getMessage());
+            } catch (final Exception e) {
+                log.error("Could not clone repository {}. The error was: {}", repository.url(), e.getMessage());
+                throw new RuntimeException(e);
+            }
+            count++;
+
+            log.debug("Cloned repository {} to {}", repository.url(), KUDE_SUBMISSIONS_PATH + repository.name());
+            log.debug("{} of {} repositories cloned", count, repositories.size());
+
+            if (count % 10 == 0) {
+                statusCallback.accept("Cloned " + count + " of " + repositories.size() + " repositories.");
+            }
+        }
+    }
+
+    public void deleteAllRepositories() {
+        final File kudeSubmissionsFolder = new File(KUDE_SUBMISSIONS_PATH);
+        if (!kudeSubmissionsFolder.exists()) {
+            log.error("KUDE submissions folder does not exist.");
+            throw new RuntimeException("KUDE submissions folder does not exist.");
+        }
+        try {
+            FileUtils.deleteDirectory(new File(KUDE_SUBMISSIONS_PATH));
+        } catch (IOException e) {
+            log.error("Could not delete KUDE submissions folder. The error was: {}", e.getMessage());
+            throw new RuntimeException("Could not delete KUDE submissions folder. The error was: " + e.getMessage());
+        }
+    }
+
+    public void deletePlagiarismResultIfExists() {
+        final File plagiarismResult = new File(KUDE_PLAGIARISM_RESULTS_PATH);
+        if (!plagiarismResult.exists()) {
+            return;
+        }
+
+        if (!plagiarismResult.delete()) {
+            log.error("Could not delete plagiarism result.");
+            throw new RuntimeException("Could not delete plagiarism result.");
+        }
     }
 }

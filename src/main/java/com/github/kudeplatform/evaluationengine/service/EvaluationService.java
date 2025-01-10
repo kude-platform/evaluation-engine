@@ -10,6 +10,7 @@ import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntit
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationResultRepository;
+import com.github.kudeplatform.evaluationengine.util.TextUtil;
 import com.github.kudeplatform.evaluationengine.view.NotifiableComponent;
 import io.kubernetes.client.openapi.ApiException;
 import lombok.Getter;
@@ -313,17 +314,14 @@ public class EvaluationService {
     }
 
     public void submitMassEvaluationTask(final String value, final List<String> instanceStartCommands, String branchName, String datasetName) {
-        final String[] lines = value.split("\n");
-        for (final String line : lines) {
-            final String[] parts = line.split(";");
-            if (parts.length == 2 && parts[0].trim().startsWith("http")) {
-                final String repositoryUrl = parts[0].trim();
-                final String name = parts[1].trim();
-                final EvaluationTask evaluationTask =
-                        new GitEvaluationTask(repositoryUrl, UUID.randomUUID().toString(), instanceStartCommands, name, branchName, datasetName);
-                this.submitEvaluationTask(evaluationTask, false);
-            }
+        final List<Repository> repositories = TextUtil.parseRepositoriesFromMassInput(value, settingsService.getGitUsername(), settingsService.getGitToken());
+
+        for (final Repository repository : repositories) {
+            final GitEvaluationTask gitEvaluationTask = new GitEvaluationTask(repository.url(), UUID.randomUUID().toString(),
+                    instanceStartCommands, repository.name(), branchName, datasetName);
+            submitEvaluationTask(gitEvaluationTask, false);
         }
+
         notifyView();
     }
 

@@ -465,7 +465,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             if (item.getStatus().isFinal() && item.isResultsAvailable()) {
-                Anchor anchor = new Anchor();
+                final Anchor anchor = new Anchor();
                 anchor.setText("Results Download");
                 anchor.setHref("/api/files/download/single/results-" + item.getTaskId() + ".txt");
                 anchor.getElement().setAttribute("download", true);

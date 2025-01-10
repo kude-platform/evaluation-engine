@@ -22,11 +22,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * @author timo.buechert
@@ -88,6 +84,11 @@ public class ApplicationConfig {
 
     @Bean(name = "activeDatasetViewComponents")
     List<NotifiableComponent> activeDatasetViewComponents() {
+        return new ArrayList<>();
+    }
+
+    @Bean(name = "activePlagiarismViewComponents")
+    List<NotifiableComponent> activePlagiarismViewComponents() {
         return new ArrayList<>();
     }
 

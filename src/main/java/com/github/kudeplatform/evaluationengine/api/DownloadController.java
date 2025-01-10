@@ -8,18 +8,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_DATA_PATH;
-import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
+import static com.github.kudeplatform.evaluationengine.service.FileSystemService.*;
 
 /**
  * @author timo.buechert
@@ -28,6 +21,10 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @RequestMapping("/api/files")
 @Slf4j
 public class DownloadController {
+
+    public static final String PLAGIARISM_RESULTS_DOWNLOAD_PATH = "/download/plagiarismResults";
+
+    public static final String PLAGIARISM_RESULTS_DOWNLOAD_PATH_FULL = "/api/files" + PLAGIARISM_RESULTS_DOWNLOAD_PATH;
 
     @RequestMapping(value = "/download/single/{file_name}", method = RequestMethod.GET)
     public void getFile(
@@ -41,6 +38,11 @@ public class DownloadController {
             @PathVariable("file_name") String fileName,
             HttpServletResponse response) {
         getFile(fileName, response, KUDE_DATA_PATH);
+    }
+
+    @RequestMapping(value = "/download/plagiarismResults", method = RequestMethod.GET)
+    public void getPlagirismResult(final HttpServletResponse response) {
+        getFile(KUDE_PLAGIARISM_RESULTS_FILE, response, KUDE_PLAGIARISM_PATH);
     }
 
     private void getFile(@PathVariable("file_name") String fileName, HttpServletResponse response, String dataPath) {
