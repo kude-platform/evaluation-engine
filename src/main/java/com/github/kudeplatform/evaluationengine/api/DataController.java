@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,6 +44,7 @@ public class DataController {
 
 
     @RequestMapping("/datasets")
+    @Transactional
     public List<Dataset> getDatasets(final HttpServletRequest request) {
         this.lastUpdatedByNode.put(request.getRemoteAddr(), DateTimeFormatter.ofPattern("hh:mm:ss").format(ZonedDateTime.now()));
         this.activeDatasetViewComponents.forEach(NotifiableComponent::dataChanged);

@@ -10,6 +10,7 @@ import com.github.kudeplatform.evaluationengine.service.EvaluationService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -91,6 +92,7 @@ public class AlertController {
     }
 
     @RequestMapping(value = "/api/alerts", method = RequestMethod.POST)
+    @Transactional
     public void saveResults(@RequestBody final AlertNotification alertNotification) {
         log.debug("Received alert notification: {}", alertNotification);
         for (final Alert alert : alertNotification.getAlerts()) {

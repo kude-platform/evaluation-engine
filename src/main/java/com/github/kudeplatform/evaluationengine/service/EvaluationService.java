@@ -24,7 +24,10 @@ import io.kubernetes.client.openapi.ApiException;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +64,7 @@ import static com.github.kudeplatform.evaluationengine.service.FileSystemService
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class EvaluationService {
+public class EvaluationService implements ApplicationContextAware {
 
     @Qualifier("evaluationTaskExecutor")
     final ThreadPoolTaskExecutor taskExecutor;
@@ -104,6 +107,17 @@ public class EvaluationService {
     private int numberOfNodes;
 
     private final HashMap<String, List<Integer>> podIndicesReadyToRun = new HashMap<>();
+
+    private ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(final ApplicationContext applicationContext) throws BeansException {
+        this.context = applicationContext;
+    }
+
+    public EvaluationService getSelfReference() {
+        return this.context.getBean(EvaluationService.class);
+    }
 
     @PostConstruct
     @Transactional
@@ -161,7 +175,7 @@ public class EvaluationService {
             evaluationEventRepository.save(evaluationEventMapper.toEntity(evaluationEvent));
         }
         final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(ingestedEvent.getEvaluationId()).orElseThrow();
-        resultEntity.setMessage(findLastMostImportantErrorEvent(ingestedEvent.getEvaluationId()));
+        resultEntity.setMessage(getSelfReference().findLastMostImportantErrorEvent(ingestedEvent.getEvaluationId()));
 
         if (event.getType().equals("BUILD_COMPLETED")) {
             synchronized (podIndicesReadyToRun) {
@@ -229,6 +243,7 @@ public class EvaluationService {
         return -1;
     }
 
+    @Transactional
     public void submitEvaluationTask(final EvaluationTask evaluationTask, final boolean notifyView) {
         final EvaluationResultEntity evaluationResultEntity = new EvaluationResultEntity();
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
@@ -273,6 +288,7 @@ public class EvaluationService {
         }
     }
 
+    @Transactional
     public synchronized void cancelEvaluationTask(final String taskId, final boolean notifyView) {
         final boolean taskNotYetStarted = evaluationTaskQueue.stream().anyMatch(task -> task.taskId().equals(taskId));
         if (taskNotYetStarted) {
@@ -281,10 +297,6 @@ public class EvaluationService {
             evaluationResultEntity.setStatus(EvaluationStatus.CANCELLED);
             evaluationResultRepository.save(evaluationResultEntity);
         } else {
-            if (evaluationIdsToRunnables.containsKey(taskId)) {
-                evaluationIdsToRunnables.get(taskId).cancel();
-            }
-
             if (evaluationFutures.containsKey(taskId)) {
                 evaluationFutures.get(taskId).cancel(true);
             }
@@ -346,7 +358,7 @@ public class EvaluationService {
         for (final Repository repository : repositories) {
             final GitEvaluationTask gitEvaluationTask = new GitEvaluationTask(repository.url(), UUID.randomUUID().toString(),
                     instanceStartCommands, repository.name(), branchName, datasetName);
-            submitEvaluationTask(gitEvaluationTask, false);
+            getSelfReference().submitEvaluationTask(gitEvaluationTask, false);
         }
 
         notifyView();
@@ -423,15 +435,9 @@ public class EvaluationService {
 
     class EvaluationRunnable implements Runnable {
 
-        private boolean cancelled = false;
-
         private boolean interrupted = false;
 
         private boolean failed = false;
-
-        public void cancel() {
-            this.cancelled = true;
-        }
 
         public void fail() {
             this.failed = true;
@@ -439,7 +445,7 @@ public class EvaluationService {
 
         @Override
         public void run() {
-            log.info("Evaluation thread with id {} started", Thread.currentThread().getId());
+            log.info("Evaluation thread with id {} started", Thread.currentThread().threadId());
             try {
                 while (!Thread.currentThread().isInterrupted() && !interrupted) {
 
@@ -450,16 +456,16 @@ public class EvaluationService {
                     try {
                         evaluationLock.acquire();
 
-                        setStartTimestampNow(task.taskId());
+                        getSelfReference().setStartTimestampNow(task.taskId());
 
-                        updateTaskStatus(task.taskId(), EvaluationStatus.DEPLOYING, true);
+                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.DEPLOYING, true);
                         deploy(task);
 
                         kubernetesService.waitForJobRunning(task.taskId(), settingsService.getReplicationFactor());
-                        updateTaskStatus(task.taskId(), EvaluationStatus.RUNNING, true);
+                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.RUNNING, true);
 
                         final ExecutorCompletionService<Result> completionService = new ExecutorCompletionService<>(asyncEvaluatorExecutorService);
-                        final Future<Result> evaluationFuture = multiEvaluator.evaluate(task, this::evaluationEventCallback, completionService);
+                        final Future<Result> evaluationFuture = multiEvaluator.evaluate(task, getSelfReference()::evaluationEventCallback, completionService);
                         evaluationFutures.put(task.taskId(), evaluationFuture);
 
                         Result result;
@@ -483,51 +489,50 @@ public class EvaluationService {
                             result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         }
 
-                        setEndTimestampNow(task.taskId());
+                        getSelfReference().setEndTimestampNow(task.taskId());
 
                         evaluationFutures.remove(task.taskId());
-                        updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(), findLastMostImportantErrorEvent(task.taskId()), false);
+                        getSelfReference().updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(),
+                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()), false);
 
                     } catch (final Exception e) {
                         log.error("Evaluation failed", e);
                         final EvaluationEvent evaluationEvent = new EvaluationEvent(task.taskId(),
                                 ZonedDateTime.now(), EvaluationStatus.FAILED, e.getMessage(), "", "EVALUATION_FAILED", EvaluationEvent.LEVEL_FATAL);
-                        this.evaluationEventCallback(evaluationEvent);
+                        getSelfReference().evaluationEventCallback(evaluationEvent);
                         
                         final Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
-                        final EvaluationResultEntity resultEntity =
-                                evaluationResultRepository.findById(task.taskId()).orElseThrow();
-                        resultEntity.setStatus(result.getEvaluationStatus());
-                        resultEntity.setMessage(findLastMostImportantErrorEvent(task.taskId()));
-                        evaluationResultRepository.save(resultEntity);
+                        getSelfReference().updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(),
+                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()), false);
                     } finally {
                         evaluationFutures.remove(task.taskId());
                         evaluationLock.release();
                         kubernetesService.deleteTask(task.taskId());
                         evaluationIdsToRunnables.remove(task.taskId());
                         notifyView(task.taskId());
-                        this.cancelled = false;
                         this.failed = false;
                         podIndicesReadyToRun.remove(task.taskId());
                     }
 
                 }
             } catch (final InterruptedException e) {
-                log.info("Evaluation thread with id {} interrupted", Thread.currentThread().getId());
+                log.info("Evaluation thread with id {} interrupted", Thread.currentThread().threadId());
                 interrupted = true;
             } catch (final Exception e) {
                 log.error("Evaluation failed", e); // TODO: better error handling
             }
 
-            log.info("Evaluation thread with id {} stopped", Thread.currentThread().getId());
+            log.info("Evaluation thread with id {} stopped", Thread.currentThread().threadId());
         }
 
-
-        public void evaluationEventCallback(final EvaluationEvent result) {
-            evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
-        }
     }
 
+    @Transactional
+    public void evaluationEventCallback(final EvaluationEvent result) {
+        evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
+    }
+
+    @Transactional
     public synchronized void updateLogsAvailable(final String jobId) {
         final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
         if (evaluationResultEntityOptional.isEmpty()) {
@@ -541,6 +546,7 @@ public class EvaluationService {
         this.notifyView(jobId);
     }
 
+    @Transactional
     public synchronized void updateResults(final String jobId, final String results) {
         final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
         if (evaluationResultEntityOptional.isEmpty()) {
@@ -557,6 +563,7 @@ public class EvaluationService {
         this.notifyView(jobId);
     }
 
+    @Transactional
     public synchronized void updateTaskStatus(final String taskId, final EvaluationStatus evaluationStatus, final boolean notifyView) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         evaluationResultEntity.setStatus(evaluationStatus);
@@ -566,6 +573,7 @@ public class EvaluationService {
         }
     }
 
+    @Transactional
     public synchronized void updateTaskStatusAndMessage(final String taskId, final EvaluationStatus evaluationStatus, String message, final boolean notifyView) {
         final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         resultEntity.setStatus(evaluationStatus);
@@ -576,19 +584,22 @@ public class EvaluationService {
         }
     }
 
+    @Transactional
     public synchronized void setStartTimestampNow(final String taskId) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         evaluationResultEntity.setStartTimestamp(ZonedDateTime.now());
         evaluationResultRepository.save(evaluationResultEntity);
     }
 
+    @Transactional
     public synchronized void setEndTimestampNow(final String taskId) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         evaluationResultEntity.setEndTimestamp(ZonedDateTime.now());
         evaluationResultRepository.save(evaluationResultEntity);
     }
 
-    private String findLastMostImportantErrorEvent(final String taskId) {
+    @Transactional
+    public String findLastMostImportantErrorEvent(final String taskId) {
         final List<EvaluationEventEntity> events = evaluationEventRepository.findByTaskId(taskId);
         final Optional<EvaluationEventEntity> fatalEvent = events.stream().filter(e -> e.getLevel().equals(EvaluationEvent.LEVEL_FATAL)).reduce((first, second) -> second);
         if (fatalEvent.isPresent()) {
