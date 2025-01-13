@@ -142,6 +142,11 @@ public class EvaluationService implements ApplicationContextAware {
         }
     }
 
+    public synchronized void saveIngestedEventAndNotifyView(final IngestedEvent ingestedEvent) {
+        getSelfReference().saveIngestedEvent(ingestedEvent);
+        this.notifyView(ingestedEvent.getEvaluationId());
+    }
+
     @Transactional
     public synchronized void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         for (final Event event : ingestedEvent.getEvents()) {
@@ -152,8 +157,6 @@ public class EvaluationService implements ApplicationContextAware {
         if (fatal) {
             failEvaluationTask(ingestedEvent.getEvaluationId(), false);
         }
-
-        this.notifyView(ingestedEvent.getEvaluationId());
     }
 
     private synchronized void handleEvent(final IngestedEvent ingestedEvent, final Event event) {
@@ -193,8 +196,6 @@ public class EvaluationService implements ApplicationContextAware {
             }
         }
         evaluationResultRepository.save(resultEntity);
-
-        notifyView(ingestedEvent.getEvaluationId());
     }
 
     private String concatIndexIfNotYetContained(final IngestedEvent ingestedEvent,
@@ -243,8 +244,26 @@ public class EvaluationService implements ApplicationContextAware {
         return -1;
     }
 
-    @Transactional
     public void submitEvaluationTask(final EvaluationTask evaluationTask, final boolean notifyView) {
+        getSelfReference().saveEvaluationEntity(evaluationTask);
+
+        if (evaluationTask instanceof GitEvaluationTask gitEvaluationTask) {
+            final String gitUser = settingsService.getGitUsername();
+            final String gitToken = settingsService.getGitToken();
+            if (!gitUser.isEmpty() && !gitToken.isEmpty()) {
+                final String gitUrl = gitEvaluationTask.repositoryUrl();
+                gitEvaluationTask.setGitUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
+            }
+        }
+
+        evaluationTaskQueue.add(evaluationTask);
+        if (notifyView) {
+            notifyView(evaluationTask.taskId());
+        }
+    }
+
+    @Transactional
+    public void saveEvaluationEntity(final EvaluationTask evaluationTask) {
         final EvaluationResultEntity evaluationResultEntity = new EvaluationResultEntity();
         evaluationResultEntity.setTaskId(evaluationTask.taskId());
         evaluationResultEntity.setStatus(EvaluationStatus.PENDING);
@@ -256,20 +275,8 @@ public class EvaluationService implements ApplicationContextAware {
         if (evaluationTask instanceof GitEvaluationTask gitEvaluationTask) {
             evaluationResultEntity.setGitUrl(gitEvaluationTask.repositoryUrl());
             evaluationResultEntity.setGitBranch(gitEvaluationTask.gitBranch());
-
-            final String gitUser = settingsService.getGitUsername();
-            final String gitToken = settingsService.getGitToken();
-            if (!gitUser.isEmpty() && !gitToken.isEmpty()) {
-                final String gitUrl = gitEvaluationTask.repositoryUrl();
-                gitEvaluationTask.setGitUrl(gitUrl.replace("https://", "https://" + gitUser + ":" + gitToken + "@"));
-            }
         }
-
         evaluationResultRepository.save(evaluationResultEntity);
-        evaluationTaskQueue.add(evaluationTask);
-        if (notifyView) {
-            notifyView(evaluationTask.taskId());
-        }
     }
 
     public synchronized void failEvaluationTask(final String taskId, final boolean notifyView) {
@@ -288,14 +295,11 @@ public class EvaluationService implements ApplicationContextAware {
         }
     }
 
-    @Transactional
-    public synchronized void cancelEvaluationTask(final String taskId, final boolean notifyView) {
+    public synchronized void cancelEvaluationTaskAndNotifyView(final String taskId, final boolean notifyView) {
         final boolean taskNotYetStarted = evaluationTaskQueue.stream().anyMatch(task -> task.taskId().equals(taskId));
         if (taskNotYetStarted) {
             evaluationTaskQueue.removeIf(task -> task.taskId().equals(taskId));
-            final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
-            evaluationResultEntity.setStatus(EvaluationStatus.CANCELLED);
-            evaluationResultRepository.save(evaluationResultEntity);
+            getSelfReference().updateTaskStatus(taskId, EvaluationStatus.CANCELLED);
         } else {
             if (evaluationFutures.containsKey(taskId)) {
                 evaluationFutures.get(taskId).cancel(true);
@@ -307,12 +311,11 @@ public class EvaluationService implements ApplicationContextAware {
         }
     }
 
-    @Transactional
     public void cancelAllEvaluationTasks() {
         evaluationResultRepository.findAll()
                 .stream()
                 .filter(evaluationResultEntity -> !evaluationResultEntity.getStatus().isFinal())
-                .forEach(evaluationResultEntity -> this.cancelEvaluationTask(evaluationResultEntity.getTaskId(), false));
+                .forEach(evaluationResultEntity -> this.cancelEvaluationTaskAndNotifyView(evaluationResultEntity.getTaskId(), false));
         notifyView();
     }
 
@@ -458,11 +461,14 @@ public class EvaluationService implements ApplicationContextAware {
 
                         getSelfReference().setStartTimestampNow(task.taskId());
 
-                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.DEPLOYING, true);
+                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.DEPLOYING);
+                        notifyView(task.taskId());
+
                         deploy(task);
 
                         kubernetesService.waitForJobRunning(task.taskId(), settingsService.getReplicationFactor());
-                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.RUNNING, true);
+                        getSelfReference().updateTaskStatus(task.taskId(), EvaluationStatus.RUNNING);
+                        notifyView(task.taskId());
 
                         final ExecutorCompletionService<Result> completionService = new ExecutorCompletionService<>(asyncEvaluatorExecutorService);
                         final Future<Result> evaluationFuture = multiEvaluator.evaluate(task, getSelfReference()::evaluationEventCallback, completionService);
@@ -493,7 +499,7 @@ public class EvaluationService implements ApplicationContextAware {
 
                         evaluationFutures.remove(task.taskId());
                         getSelfReference().updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(),
-                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()), false);
+                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()));
 
                     } catch (final Exception e) {
                         log.error("Evaluation failed", e);
@@ -503,7 +509,7 @@ public class EvaluationService implements ApplicationContextAware {
                         
                         final Result result = new SingleEvaluationResult(task, EvaluationStatus.FAILED, List.of());
                         getSelfReference().updateTaskStatusAndMessage(task.taskId(), result.getEvaluationStatus(),
-                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()), false);
+                                getSelfReference().findLastMostImportantErrorEvent(task.taskId()));
                     } finally {
                         evaluationFutures.remove(task.taskId());
                         evaluationLock.release();
@@ -532,56 +538,56 @@ public class EvaluationService implements ApplicationContextAware {
         evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
     }
 
+    public synchronized void updateLogsAvailableAndNotifyView(final String jobId) {
+        getSelfReference().updateLogsAvailable(jobId);
+        this.notifyView(jobId);
+    }
+
+    public synchronized void updateResults(final String jobId, final String results) {
+        final ResultsEvaluation resultsEvaluation = areResultsCorrect(results);
+        getSelfReference().updateResults(resultsEvaluation, jobId);
+        this.notifyView(jobId);
+    }
+
     @Transactional
-    public synchronized void updateLogsAvailable(final String jobId) {
-        final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
+    public synchronized void updateLogsAvailable(final String taskId) {
+        final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(taskId);
         if (evaluationResultEntityOptional.isEmpty()) {
             return;
         }
 
         final EvaluationResultEntity evaluationResultEntity = evaluationResultEntityOptional.get();
-
         evaluationResultEntity.setLogsAvailable(true);
-        this.evaluationResultRepository.save(evaluationResultEntity);
-        this.notifyView(jobId);
+        evaluationResultRepository.save(evaluationResultEntity);
     }
 
+
     @Transactional
-    public synchronized void updateResults(final String jobId, final String results) {
+    public synchronized void updateResults(final ResultsEvaluation resultsEvaluation, final String jobId) {
         final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
         if (evaluationResultEntityOptional.isEmpty()) {
             return;
         }
-
-        final ResultsEvaluation resultsEvaluation = areResultsCorrect(results);
-
         final EvaluationResultEntity evaluationResultEntity = evaluationResultEntityOptional.get();
         evaluationResultEntity.setResultsAvailable(true);
         evaluationResultEntity.setResultsCorrect(resultsEvaluation.correct());
         evaluationResultEntity.setResultProportion(resultsEvaluation.resultProportion());
         this.evaluationResultRepository.save(evaluationResultEntity);
-        this.notifyView(jobId);
     }
 
     @Transactional
-    public synchronized void updateTaskStatus(final String taskId, final EvaluationStatus evaluationStatus, final boolean notifyView) {
+    public synchronized void updateTaskStatus(final String taskId, final EvaluationStatus evaluationStatus) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         evaluationResultEntity.setStatus(evaluationStatus);
         evaluationResultRepository.save(evaluationResultEntity);
-        if (notifyView) {
-            notifyView(taskId);
-        }
     }
 
     @Transactional
-    public synchronized void updateTaskStatusAndMessage(final String taskId, final EvaluationStatus evaluationStatus, String message, final boolean notifyView) {
+    public synchronized void updateTaskStatusAndMessage(final String taskId, final EvaluationStatus evaluationStatus, String message) {
         final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
         resultEntity.setStatus(evaluationStatus);
         resultEntity.setMessage(message);
         evaluationResultRepository.save(resultEntity);
-        if (notifyView) {
-            notifyView(taskId);
-        }
     }
 
     @Transactional
@@ -598,7 +604,6 @@ public class EvaluationService implements ApplicationContextAware {
         evaluationResultRepository.save(evaluationResultEntity);
     }
 
-    @Transactional
     public String findLastMostImportantErrorEvent(final String taskId) {
         final List<EvaluationEventEntity> events = evaluationEventRepository.findByTaskId(taskId);
         final Optional<EvaluationEventEntity> fatalEvent = events.stream().filter(e -> e.getLevel().equals(EvaluationEvent.LEVEL_FATAL)).reduce((first, second) -> second);

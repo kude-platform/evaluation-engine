@@ -22,7 +22,7 @@ public class EventIngestionController {
 
     @RequestMapping(value = "/ingest/event", method = RequestMethod.POST)
     public void ingestEvent(@RequestBody IngestedEvent ingestedEvent) {
-        this.evaluationService.saveIngestedEvent(ingestedEvent);
+        this.evaluationService.saveIngestedEventAndNotifyView(ingestedEvent);
     }
 
 }

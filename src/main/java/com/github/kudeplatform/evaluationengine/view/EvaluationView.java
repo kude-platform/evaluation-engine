@@ -437,7 +437,7 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
             final Button button = new Button("Cancel");
             button.setDisableOnClick(true);
             button.addClickListener(clickEvent -> {
-                this.evaluationService.cancelEvaluationTask(item.getTaskId(), true);
+                this.evaluationService.cancelEvaluationTaskAndNotifyView(item.getTaskId(), true);
                 this.update(item.getTaskId());
             });
             return button;
