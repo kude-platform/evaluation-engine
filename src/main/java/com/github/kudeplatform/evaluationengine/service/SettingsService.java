@@ -150,7 +150,7 @@ public class SettingsService {
     }
 
     public String getMemoryRequest() {
-        return getSetting(KEY_MEMORY_REQUEST).orElse("2048Mi");
+        return getSetting(KEY_MEMORY_REQUEST).orElse("3048Mi");
     }
 
     public void setMemoryRequest(final String memoryRequest) {
@@ -158,7 +158,7 @@ public class SettingsService {
     }
 
     public String getMemoryLimit() {
-        return getSetting(KEY_MEMORY_LIMIT).orElse("2548Mi");
+        return getSetting(KEY_MEMORY_LIMIT).orElse("3048Mi");
     }
 
     public void setMemoryLimit(final String memoryLimit) {
