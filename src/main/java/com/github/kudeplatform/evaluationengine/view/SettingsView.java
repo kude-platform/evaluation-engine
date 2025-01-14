@@ -34,10 +34,7 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_ERROR;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_FATAL;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_INFO;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_WARNING;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.*;
 
 /**
  * @author timo.buechert
@@ -414,7 +411,8 @@ public class SettingsView extends VerticalLayout {
                 new LogEventDefinitionEntity(null, "CLASS_NOT_FOUND", "ClassNotFoundException", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "ILLEGAL_ARGUMENT", "IllegalArgumentException", LEVEL_FATAL),
                 new LogEventDefinitionEntity(null, "DEFAULT_PRESS_ENTER_TO_EXIT_NOT_REMOVED", "Press ENTER to exit", LEVEL_FATAL),
-                new LogEventDefinitionEntity(null, "FILE_NOT_FOUND_EXCEPTION", "FileNotFoundException", LEVEL_FATAL)
+                new LogEventDefinitionEntity(null, "FILE_NOT_FOUND_EXCEPTION", "FileNotFoundException", LEVEL_FATAL),
+                new LogEventDefinitionEntity(null, "NO_SUCH_FILE_EXCEPTION", "NoSuchFileException", LEVEL_FATAL)
         );
 
         final List<LogEventDefinitionEntity> logEventDefinitions = this.logEventDefinitionRepository.findAll();
