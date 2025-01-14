@@ -126,7 +126,7 @@ public class SettingsService {
     }
 
     public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.11");
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.13");
     }
 
     public void setEvaluationImage(final String evaluationImage) {
