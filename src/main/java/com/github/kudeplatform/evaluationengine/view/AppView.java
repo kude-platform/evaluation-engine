@@ -44,10 +44,11 @@ public class AppView extends AppLayout {
         final SideNav nav = new SideNav();
         final SideNavItem evaluationLink = new SideNavItem("Evaluation", EvaluationView.class, VaadinIcon.GLASS.create());
         final SideNavItem graphsLink = new SideNavItem("Performance Graphs", GraphView.class, VaadinIcon.CHART.create());
+        final SideNavItem exportImagesLink = new SideNavItem("Export Images", ExportImageView.class, VaadinIcon.PICTURE.create());
         final SideNavItem dataLink = new SideNavItem("Datasets", DatasetView.class, VaadinIcon.DATABASE.create());
         final SideNavItem plagiarismLink = new SideNavItem("Plagiarism", PlagiarismView.class, VaadinIcon.COPY.create());
         final SideNavItem settingsLink = new SideNavItem("Settings", SettingsView.class, VaadinIcon.COG.create());
-        nav.addItem(evaluationLink, graphsLink, dataLink, plagiarismLink, settingsLink);
+        nav.addItem(evaluationLink, graphsLink, exportImagesLink, dataLink, plagiarismLink, settingsLink);
         navLayout.add(nav);
 
         final Span version = new Span("Version: " + buildProperties.getVersion());

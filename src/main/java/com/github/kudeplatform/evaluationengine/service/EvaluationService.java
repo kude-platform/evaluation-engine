@@ -404,6 +404,13 @@ public class EvaluationService implements ApplicationContextAware {
         fileSystemService.saveToCsvFile(evaluationResultWithEventsList);
     }
 
+    @Transactional
+    public List<EvaluationResultEntity> getFinishedEvaluationEntities() {
+        return evaluationResultRepository.findAll().stream()
+                .filter(evaluationResultEntity -> evaluationResultEntity.getStatus().isFinal())
+                .collect(Collectors.toList());
+    }
+
     private int calculateMaxNumberOfParallelJobs(final int replicationFactor, final int maxJobsPerNode) {
         return (this.numberOfNodes * maxJobsPerNode) / replicationFactor;
     }

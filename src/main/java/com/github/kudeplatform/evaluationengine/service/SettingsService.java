@@ -55,6 +55,15 @@ public class SettingsService {
     private String grafanaHost;
 
     @Getter
+    @Value("${GRAFANA_USER:admin}")
+    private String grafanaUser;
+
+    @Getter
+    @Value("${GRAFANA_PASSWORD:admin}")
+    private String grafanaPassword;
+
+
+    @Getter
     @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
     private String useWatchToDetectCompletion;
 
