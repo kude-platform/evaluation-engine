@@ -8,7 +8,14 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
-import io.kubernetes.client.openapi.models.*;
+import io.kubernetes.client.openapi.models.V1ContainerState;
+import io.kubernetes.client.openapi.models.V1ContainerStateWaiting;
+import io.kubernetes.client.openapi.models.V1ContainerStatus;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.openapi.models.V1JobStatus;
+import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodStatus;
 import io.kubernetes.client.util.Watch;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
@@ -161,36 +168,45 @@ public class KubernetesService implements OrchestrationService {
     }
 
     public KubernetesStatus waitForJobStatus(final String taskId, final int replicas, final Function<KubernetesStatus, Boolean> jobStatusEvaluator) throws ApiException {
-        final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
-                .listNamespacedJob("evaluation")
-                .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId));
+        while (true) {
+            log.debug("Waiting for job status for evaluation id {}", taskId);
+            final BatchV1Api.APIlistNamespacedJobRequest jobRequest = batchV1Api
+                    .listNamespacedJob("evaluation")
+                    .fieldSelector(String.format("metadata.name=ddm-akka-%s", taskId));
 
-        final V1JobList initialJobList = jobRequest.execute();
+            final V1JobList initialJobList = jobRequest.execute();
 
-        final KubernetesStatus kubernetesStatus = evaluateJobStatus(initialJobList.getItems().get(0), replicas);
-        if (jobStatusEvaluator.apply(kubernetesStatus)) {
-            return kubernetesStatus;
-        }
-
-        final Call jobCall = jobRequest.watch(true).buildCall(null);
-        final Type type = new TypeToken<Watch.Response<V1Job>>() {
-        }.getType();
-
-        try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
-
-            for (Watch.Response<V1Job> item : watch) {
-                log.debug("Job status for task id {} {}", taskId, item.object.getStatus());
-                final KubernetesStatus status = evaluateJobStatus(item.object, replicas);
-                if (jobStatusEvaluator.apply(status)) {
-                    return status;
-                }
+            final KubernetesStatus kubernetesStatus = evaluateJobStatus(initialJobList.getItems().get(0), replicas);
+            if (jobStatusEvaluator.apply(kubernetesStatus)) {
+                return kubernetesStatus;
             }
 
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+            final Call jobCall = jobRequest.watch(true).buildCall(null);
+            final Type type = new TypeToken<Watch.Response<V1Job>>() {
+            }.getType();
 
-        return KubernetesStatus.UNKNOWN;
+            try (Watch<V1Job> watch = Watch.createWatch(apiClient, jobCall, type)) {
+                for (Watch.Response<V1Job> item : watch) {
+                    log.debug("Job status for task id {} {}", taskId, item.object.getStatus());
+                    final KubernetesStatus status = evaluateJobStatus(item.object, replicas);
+                    if (jobStatusEvaluator.apply(status)) {
+                        final CoreV1Api.APIlistNamespacedPodRequest podRequest = coreV1Api
+                                .listNamespacedPod("evaluation");
+                        final List<V1Pod> podList = podRequest.execute()
+                                .getItems().stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith("ddm-akka-" + taskId)).toList();
+                        for (V1Pod pod : podList) {
+                            log.debug("Pod status for task id {} {}", taskId, Optional.ofNullable(pod).map(V1Pod::getStatus).map(V1PodStatus::toJson).orElse(""));
+                        }
+
+                        return status;
+                    }
+                }
+
+            } catch (Exception e) {
+                log.error("Error while waiting for job status", e);
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public ReasonedKubernetesStatus getPodStatusOncePodsAreRunningOrWaiting(final String taskId, final int replicationFactor) throws ApiException {
