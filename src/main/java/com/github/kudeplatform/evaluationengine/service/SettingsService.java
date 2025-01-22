@@ -62,11 +62,6 @@ public class SettingsService {
     @Value("${GRAFANA_PASSWORD:admin}")
     private String grafanaPassword;
 
-
-    @Getter
-    @Value("${USE_WATCH_TO_DETECT_COMPLETION:false}")
-    private String useWatchToDetectCompletion;
-
     @PostConstruct
     public void init() {
         try {

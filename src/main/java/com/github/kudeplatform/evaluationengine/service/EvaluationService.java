@@ -4,15 +4,7 @@ import com.github.kudeplatform.evaluationengine.api.Event;
 import com.github.kudeplatform.evaluationengine.api.IngestedEvent;
 import com.github.kudeplatform.evaluationengine.async.EvaluationFinishedEvaluator;
 import com.github.kudeplatform.evaluationengine.async.MultiEvaluator;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationEvent;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationResultWithEvents;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationStatus;
-import com.github.kudeplatform.evaluationengine.domain.EvaluationTask;
-import com.github.kudeplatform.evaluationengine.domain.GitEvaluationTask;
-import com.github.kudeplatform.evaluationengine.domain.Repository;
-import com.github.kudeplatform.evaluationengine.domain.Result;
-import com.github.kudeplatform.evaluationengine.domain.ResultsEvaluation;
-import com.github.kudeplatform.evaluationengine.domain.SingleEvaluationResult;
+import com.github.kudeplatform.evaluationengine.domain.*;
 import com.github.kudeplatform.evaluationengine.mapper.EvaluationEventMapper;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventEntity;
 import com.github.kudeplatform.evaluationengine.persistence.EvaluationEventRepository;
@@ -38,23 +30,8 @@ import java.io.File;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import static com.github.kudeplatform.evaluationengine.service.FileSystemService.KUDE_TMP_FOLDER_PATH_WITH_TRAILING_SEPARATOR;
@@ -102,8 +79,6 @@ public class EvaluationService implements ApplicationContextAware {
 
     private Semaphore evaluationLock;
 
-    private boolean useWatchToDetectCompletionAsBoolean;
-
     @Getter
     private int numberOfNodes;
 
@@ -136,11 +111,6 @@ public class EvaluationService implements ApplicationContextAware {
             activeEvaluationThreads.add(taskExecutor.submit(evaluationRunnable));
         }
 
-        try {
-            useWatchToDetectCompletionAsBoolean = Boolean.parseBoolean(settingsService.getUseWatchToDetectCompletion());
-        } catch (final Exception e) {
-            useWatchToDetectCompletionAsBoolean = false;
-        }
     }
 
     public synchronized void saveIngestedEventAndNotifyView(final IngestedEvent ingestedEvent) {
@@ -190,10 +160,8 @@ public class EvaluationService implements ApplicationContextAware {
 
         if (event.getType().equals("JOB_COMPLETED")) {
             resultEntity.getPodIndicesCompleted().add(Integer.parseInt(ingestedEvent.getIndex()));
-            resultEntity.setNetEvaluationDurationInSeconds(event.getDurationInSeconds());
-
-            if (!useWatchToDetectCompletionAsBoolean) {
-                evaluationFinishedEvaluator.notifyEvaluationFinished();
+            if (Objects.equals(ingestedEvent.getIndex(), "0")) {
+                resultEntity.setNetEvaluationDurationInSeconds(event.getDurationInSeconds());
             }
         }
         evaluationResultRepository.save(resultEntity);
