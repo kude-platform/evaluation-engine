@@ -41,7 +41,7 @@ public class ImageExportService {
     }
 
     private String getGrafanaChartRendererUrl(final EvaluationResultEntity evaluationResultEntity) {
-        final String grafanaChartRendererUrlTemplate = "http://%s:%s@%s/render/d/ee9ya50i64u80c?orgId=1&from=%d&to=%d&width=1080&height=760&tz=Europe%%2FZurich&theme=light&var-jobName=ddm-akka-%s.*";
+        final String grafanaChartRendererUrlTemplate = "http://%s:%s@%s/render/d/ee9ya50i64u80c?orgId=1&from=%d&to=%d&width=1080&height=700&tz=Europe%%2FZurich&theme=light&var-jobName=ddm-akka-%s.*&kiosk";
         final long startTimestamp = evaluationResultEntity.getStartTimestamp().toInstant().toEpochMilli();
         final long endTimestamp = evaluationResultEntity.getEndTimestamp().toInstant().toEpochMilli();
 

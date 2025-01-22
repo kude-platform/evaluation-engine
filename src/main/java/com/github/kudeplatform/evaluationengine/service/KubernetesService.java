@@ -21,6 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -82,23 +84,10 @@ public class KubernetesService implements OrchestrationService {
     }
 
     public int getNumberOfNodes() throws ApiException {
-        //return 12;
-        //TODO: this currently fails due to https://github.com/kubernetes-client/java/issues/3319
         return coreV1Api.listNode().execute().getItems().size() - nodesReservedForSystem;
     }
 
-    public V1JobStatus getJobStatus(String taskId) throws ApiException, OrchestrationServiceException {
-        final V1Job job = batchV1Api
-                .listNamespacedJob("evaluation")
-                .execute()
-                .getItems()
-                .stream().filter(v1Job -> v1Job.getMetadata().getName().startsWith(String.format("ddm-akka-%s", taskId)))
-                .findFirst()
-                .orElseThrow(() -> new JobNotFoundException("Job not found"));
-
-        return job.getStatus();
-    }
-
+    @Retryable(maxAttempts = 5, backoff = @Backoff(delay = 30000))
     public void deployTask(final GitEvaluationTask gitEvaluationTask, final SettingsService settingsService,
                            final boolean multipleJobsPerNode) {
         final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
@@ -138,6 +127,7 @@ public class KubernetesService implements OrchestrationService {
         }
     }
 
+    @Retryable(maxAttempts = 5, backoff = @Backoff(delay = 30000))
     public void deleteTask(String taskId) {
         final String name = String.format("ddm-akka-%s", taskId);
         Helm.list().call()

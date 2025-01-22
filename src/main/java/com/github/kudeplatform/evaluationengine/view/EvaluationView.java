@@ -445,12 +445,17 @@ public class EvaluationView extends VerticalLayout implements NotifiableComponen
 
         grid.addColumn(new ComponentRenderer<>(item -> {
             final VerticalLayout layout = new VerticalLayout();
-            final String grafanaUrl = "http://" + settingsService.getGrafanaHost() + "/d/be2n0s0j623ggb/logs?orgId=1&from=now-6h&to=now&timezone=browser&var-Filters=kubernetesPodName%7C%3D~%7Cddm-akka-" + item.getTaskId() + ".%2A&var-Filters=index%7C%3D%7C0";
             final Anchor grafanaAnchor = new Anchor();
-            grafanaAnchor.setText("Grafana");
-            grafanaAnchor.setHref(grafanaUrl);
+            grafanaAnchor.setText("Grafana Logs");
+            grafanaAnchor.setHref(this.evaluationService.getGrafanaLogsUrl(item));
             grafanaAnchor.setTarget("_blank");
             layout.add(grafanaAnchor);
+
+            final Anchor grafanaResourcesAnchor = new Anchor();
+            grafanaResourcesAnchor.setText("Grafana Resources");
+            grafanaResourcesAnchor.setHref(this.evaluationService.getGrafanaResourcesUrl(item));
+            grafanaResourcesAnchor.setTarget("_blank");
+            layout.add(grafanaResourcesAnchor);
 
             if (item.getStatus().isFinal() && item.isLogsAvailable()) {
                 Anchor logsDownloadAnchor = new Anchor();

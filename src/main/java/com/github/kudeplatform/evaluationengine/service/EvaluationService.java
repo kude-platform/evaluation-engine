@@ -36,6 +36,7 @@ import org.springframework.util.StringUtils;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -532,7 +533,15 @@ public class EvaluationService implements ApplicationContextAware {
                 log.info("Evaluation thread with id {} interrupted", Thread.currentThread().threadId());
                 interrupted = true;
             } catch (final Exception e) {
-                log.error("Evaluation failed", e); // TODO: better error handling
+                log.error("Evaluation thread with id {} stopped because of exception {}", Thread.currentThread().threadId(), e.getMessage());
+                log.error("Evaluation thread will be restarted after 10 seconds");
+                try {
+                    Thread.sleep(10_000);
+                    activeEvaluationThreads.add(taskExecutor.submit(this));
+                } catch (final InterruptedException interruptedException) {
+                    log.error("Evaluation thread with id {} interrupted while waiting for restart.", Thread.currentThread().threadId());
+                    interrupted = true;
+                }
             }
 
             log.info("Evaluation thread with id {} stopped", Thread.currentThread().threadId());
@@ -624,6 +633,26 @@ public class EvaluationService implements ApplicationContextAware {
         }
 
         return "";
+    }
+
+    public String getGrafanaLogsUrl(final EvaluationResultEntity evaluationResultEntity) {
+        final String template = "http://%s/d/be2n0s0j623ggb/logs?orgId=1&from=%s&to=%s&timezone=browser&var-Filters=kubernetesPodName%%7C%%3D~%%7Cddm-akka-%s.%%2A&var-Filters=index%%7C%%3D%%7C0";
+
+        return String.format(template, settingsService.getGrafanaHost(), getFromOrDefault(evaluationResultEntity), getToOrDefault(evaluationResultEntity), evaluationResultEntity.getTaskId());
+    }
+
+    public String getGrafanaResourcesUrl(final EvaluationResultEntity evaluationResultEntity) {
+        final String template = "http://%s/d/ee9ya50i64u80c?orgId=1&from=%s&to=%s&tz=Europe%%2FZurich&theme=light&var-jobName=ddm-akka-%s.*";
+
+        return String.format(template, settingsService.getGrafanaHost(), getFromOrDefault(evaluationResultEntity), getToOrDefault(evaluationResultEntity), evaluationResultEntity.getTaskId());
+    }
+
+    private static String getToOrDefault(EvaluationResultEntity evaluationResultEntity) {
+        return Optional.ofNullable(evaluationResultEntity.getEndTimestamp()).map(ZonedDateTime::toInstant).map(Instant::toEpochMilli).map(String::valueOf).orElse("now");
+    }
+
+    private static String getFromOrDefault(EvaluationResultEntity evaluationResultEntity) {
+        return Optional.ofNullable(evaluationResultEntity.getStartTimestamp()).map(ZonedDateTime::toInstant).map(Instant::toEpochMilli).map(String::valueOf).orElse("now-6h");
     }
 
     private void deploy(EvaluationTask task) {
