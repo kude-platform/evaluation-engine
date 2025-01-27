@@ -421,7 +421,7 @@ public class EvaluationService implements ApplicationContextAware {
 
     private String getSparkTemplateStartCommand(int instanceId, String datasetName) {
         if (instanceId == 0) {
-            return String.format("spark-submit --master spark://localhost:7077 app.jar --path /data/%s --master $MASTER_HOST", datasetName);
+            return String.format("spark-submit --master spark://localhost:7077 app.jar --path /data/%s --master spark://$MASTER_HOST", datasetName);
         }
 
         return "EMPTY";

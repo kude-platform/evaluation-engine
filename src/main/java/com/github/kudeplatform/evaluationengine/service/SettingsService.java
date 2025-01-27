@@ -138,7 +138,7 @@ public class SettingsService {
     }
 
     public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/ddm-spark:0.0.8");
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/ddm-spark:0.0.13");
     }
 
     public void setEvaluationImage(final String evaluationImage) {
