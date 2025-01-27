@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.view;
 
+import com.github.kudeplatform.evaluationengine.domain.SupportedModes;
 import com.github.kudeplatform.evaluationengine.persistence.LogEventDefinitionEntity;
 import com.github.kudeplatform.evaluationengine.persistence.LogEventDefinitionRepository;
 import com.github.kudeplatform.evaluationengine.service.EvaluationService;
@@ -33,11 +34,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_ERROR;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_FATAL;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_INFO;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_WARNING;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.*;
 
 /**
  * @author timo.buechert
@@ -70,6 +69,8 @@ public class SettingsView extends VerticalLayout {
     final TextField memoryRequest;
 
     final TextField memoryLimit;
+
+    final Select<String> mode = new Select<>();
 
     final Button saveButton;
 
@@ -125,6 +126,8 @@ public class SettingsView extends VerticalLayout {
         this.memoryLimit = new TextField("Memory limit");
         this.saveButton = new Button("Save");
 
+        this.mode.setItems(Stream.of(SupportedModes.values()).map(SupportedModes::getMode).toList());
+
         final FormLayout formLayout = new FormLayout();
         formLayout.add(timeoutInSeconds);
         formLayout.add(replicationFactor);
@@ -137,6 +140,7 @@ public class SettingsView extends VerticalLayout {
         formLayout.add(memoryRequest);
         formLayout.add(memoryLimit);
         formLayout.add(saveButton);
+        formLayout.add(mode);
         this.add(formLayout);
 
         this.add(new Hr());
@@ -356,6 +360,13 @@ public class SettingsView extends VerticalLayout {
 
         this.memoryLimit.setValue(settingsService.getMemoryLimit());
 
+        final Binder<String> modeBinder = new Binder<>(String.class);
+        modeBinder.forField(mode)
+                .bind(this::getModeValue, this::setModeValue);
+        binders.add(modeBinder);
+
+        this.mode.setValue(settingsService.getMode().getMode());
+
         this.saveButton.addClickListener(event -> {
             if (this.areBindersValid()) {
                 timeoutInSecondsBinder.writeBeanIfValid(timeoutInSecondsValue);
@@ -368,6 +379,7 @@ public class SettingsView extends VerticalLayout {
                 cpuLimitBinder.writeBeanIfValid(cpuLimitValue);
                 memoryRequestBinder.writeBeanIfValid(memoryRequestValue);
                 memoryLimitBinder.writeBeanIfValid(memoryLimitValue);
+                modeBinder.writeBeanIfValid(mode.getValue());
 
                 settingsService.setTimeoutInSeconds(timeoutInSecondsValue);
                 try {
@@ -387,6 +399,7 @@ public class SettingsView extends VerticalLayout {
                 settingsService.setCpuLimit(cpuLimitValue);
                 settingsService.setMemoryRequest(memoryRequestValue);
                 settingsService.setMemoryLimit(memoryLimitValue);
+                settingsService.setMode(mode.getValue());
 
                 Notification.show("Saved settings", 5000, Notification.Position.TOP_CENTER);
             }
@@ -510,4 +523,11 @@ public class SettingsView extends VerticalLayout {
         return this.memoryLimitValue;
     }
 
+    private void setModeValue(String bean, String fieldValue) {
+        this.mode.setValue(fieldValue);
+    }
+
+    private String getModeValue(String bean) {
+        return this.mode.getValue();
+    }
 }

@@ -54,6 +54,8 @@ spec:
               name: master-port
             - containerPort: 7879
               name: worker-port
+            - containerPort: 7077
+              name: spark-port
           volumeMounts:
             - name: data
               mountPath: /data/{{ .Values.datasetName }}

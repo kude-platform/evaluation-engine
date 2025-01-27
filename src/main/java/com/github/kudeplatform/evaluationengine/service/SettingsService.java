@@ -1,5 +1,6 @@
 package com.github.kudeplatform.evaluationengine.service;
 
+import com.github.kudeplatform.evaluationengine.domain.SupportedModes;
 import com.github.kudeplatform.evaluationengine.persistence.SettingsEntity;
 import com.github.kudeplatform.evaluationengine.persistence.SettingsRepository;
 import io.kubernetes.client.openapi.ApiException;
@@ -19,6 +20,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class SettingsService {
+
+    private static final String KEY_MODE = "mode";
 
     private static final String KEY_TIMEOUT_IN_SECONDS = "timeoutInSeconds";
 
@@ -72,6 +75,20 @@ public class SettingsService {
         }
     }
 
+
+    public SupportedModes getMode() {
+        try {
+            return SupportedModes.fromString(getSetting(KEY_MODE).orElse("spark").toUpperCase());
+        } catch (Exception e) {
+            log.error("Failed to parse mode from settings. Using default value.", e);
+            return SupportedModes.SPARK;
+        }
+    }
+
+    public void setMode(final String mode) {
+        setSetting(KEY_MODE, mode);
+    }
+
     public int getTimeoutInSeconds() {
         return Integer.parseInt(getSetting(KEY_TIMEOUT_IN_SECONDS).orElse("600"));
     }
@@ -121,7 +138,7 @@ public class SettingsService {
     }
 
     public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/akka-tpch-jdk11:0.4.13");
+        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/ddm-spark:0.0.8");
     }
 
     public void setEvaluationImage(final String evaluationImage) {
@@ -228,4 +245,5 @@ public class SettingsService {
                                 
                 """;
     }
+
 }

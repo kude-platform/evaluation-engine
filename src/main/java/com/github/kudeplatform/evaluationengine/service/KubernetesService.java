@@ -81,6 +81,12 @@ public class KubernetesService implements OrchestrationService {
     @Retryable(maxAttempts = 5, backoff = @Backoff(delay = 30000))
     public void deployTask(final GitEvaluationTask gitEvaluationTask, final SettingsService settingsService,
                            final boolean multipleJobsPerNode) {
+        try {
+            deleteTask(gitEvaluationTask.taskId());
+        } catch (final Exception e) {
+            log.error("Failed to delete task", e);
+        }
+
         final InstallCommand installCommand = new Helm(Paths.get("helm", "ddm-akka"))
                 .install().withName(getName(gitEvaluationTask.taskId()))
                 .set("name", getName(gitEvaluationTask.taskId()))
@@ -104,7 +110,13 @@ public class KubernetesService implements OrchestrationService {
             installCommand.set("gitBranch", gitEvaluationTask.gitBranch());
         }
 
-        installCommand.call();
+        try {
+            installCommand.call();
+        } catch (final Exception e) {
+            log.error("Failed to deploy task", e);
+            throw e;
+        }
+
     }
 
     public String getName(final String taskId) {

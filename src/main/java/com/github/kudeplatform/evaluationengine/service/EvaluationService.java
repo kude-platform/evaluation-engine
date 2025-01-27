@@ -405,11 +405,26 @@ public class EvaluationService implements ApplicationContextAware {
     }
 
     public String getTemplateStartCommand(final int instanceId, String datasetName) {
+        return switch (settingsService.getMode()) {
+            case AKKA -> getAkkaTemplateStartCommand(instanceId, datasetName);
+            case SPARK -> getSparkTemplateStartCommand(instanceId, datasetName);
+        };
+    }
+
+    private String getAkkaTemplateStartCommand(int instanceId, String datasetName) {
         if (instanceId == 0) {
             return String.format("java -Xms2048m -Xmx2048m -jar ./app.jar master -h $CURRENT_HOST -ip /data/%s -w 4", datasetName);
         }
 
         return "java -Xms2048m -Xmx2048m -jar ./app.jar worker -mh $MASTER_HOST -h $CURRENT_HOST -w 4";
+    }
+
+    private String getSparkTemplateStartCommand(int instanceId, String datasetName) {
+        if (instanceId == 0) {
+            return String.format("spark-submit --master spark://localhost:7077 app.jar --path /data/%s --master $MASTER_HOST", datasetName);
+        }
+
+        return "EMPTY";
     }
 
     class EvaluationRunnable implements Runnable {
