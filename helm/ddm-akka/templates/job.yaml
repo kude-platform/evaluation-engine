@@ -17,7 +17,6 @@ metadata:
   namespace: {{ .Values.namespace }}
   labels:
     app: {{ .Values.name }}
-    kueue.x-k8s.io/queue-name: local-queue
 spec:
   completions: {{ .Values.replicaCount }}
   parallelism: {{ .Values.replicaCount }}
@@ -25,8 +24,6 @@ spec:
   suspend: false
   backoffLimit: 0
   ttlSecondsAfterFinished: 1000
-  #activeDeadlineSeconds causes pods to be deleted after the specified time
-  #activeDeadlineSeconds: {{ .Values.timeoutInSeconds }}
   template:
     metadata:
       labels:
@@ -56,8 +53,10 @@ spec:
               name: worker-port
             - containerPort: 7077
               name: spark-port
-            - containerPort: 8089
+            - containerPort: 8091
               name: spark-stop
+            - containerPort: 8080
+              name: spark-ui-port
           volumeMounts:
             - name: data
               mountPath: /data/{{ .Values.datasetName }}
