@@ -55,8 +55,6 @@ spec:
               name: spark-port
             - containerPort: 8091
               name: spark-stop
-            - containerPort: 8080
-              name: spark-ui-port
           volumeMounts:
             - name: data
               mountPath: /data/{{ .Values.datasetName }}
