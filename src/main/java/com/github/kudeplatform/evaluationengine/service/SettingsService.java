@@ -21,6 +21,10 @@ import java.util.Optional;
 @Slf4j
 public class SettingsService {
 
+    public static final String DEFAULT_SPARK_EVALUATION_IMAGE = "registry.local/ddm-spark:0.0.14";
+
+    public static final String DEFAULT_AKKA_EVALUATION_IMAGE = "registry.local/akka-tpch-jdk11:0.4.17";
+
     private static final String KEY_MODE = "mode";
 
     private static final String KEY_TIMEOUT_IN_SECONDS = "timeoutInSeconds";
@@ -137,15 +141,8 @@ public class SettingsService {
         setSetting(KEY_EXAMPLE_SOLUTION, sampleSolution);
     }
 
-    public String getEvaluationImage(final String mode) {
-        if (getSetting(KEY_EVALUATION_IMAGE).isPresent()) {
-            return getSetting(KEY_EVALUATION_IMAGE).get();
-        }
-        if (mode.equalsIgnoreCase(SupportedModes.AKKA.getMode())) {
-            return "registry.local/akka-tpch-jdk11:0.4.17";
-        }
-
-        return "registry.local/ddm-spark:0.0.14";
+    public String getEvaluationImage() {
+        return getSetting(KEY_EVALUATION_IMAGE).orElse(getDefaultEvaluationImage(getMode().name()));
     }
 
     public void setEvaluationImage(final String evaluationImage) {
@@ -196,6 +193,10 @@ public class SettingsService {
         }
         settingsEntity.setSettingsValue(value);
         settingsRepository.save(settingsEntity);
+    }
+
+    public String getDefaultEvaluationImage(final String mode) {
+        return SupportedModes.AKKA.name().equals(mode) ? DEFAULT_AKKA_EVALUATION_IMAGE : DEFAULT_SPARK_EVALUATION_IMAGE;
     }
 
     private String createDefaultSampleSolution() {

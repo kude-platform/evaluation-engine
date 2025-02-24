@@ -134,7 +134,7 @@ public class SettingsView extends VerticalLayout {
         this.mode.setLabel("Mode");
         this.mode.addValueChangeListener(event -> {
             if (Objects.nonNull(event.getValue())) {
-                this.evaluationImage.setValue(settingsService.getEvaluationImage(event.getValue()));
+                this.evaluationImage.setValue(settingsService.getDefaultEvaluationImage(event.getValue()));
             }
         });
 
@@ -340,7 +340,7 @@ public class SettingsView extends VerticalLayout {
                 .bind(this::getEvaluationImageValue, this::setEvaluationImageValue);
         binders.add(evaluationImageBinder);
 
-        this.evaluationImage.setValue(settingsService.getEvaluationImage(this.mode.getValue()));
+        this.evaluationImage.setValue(settingsService.getEvaluationImage());
 
         final Binder<String> cpuRequestBinder = new Binder<>(String.class);
         cpuRequestBinder.forField(cpuRequest)
