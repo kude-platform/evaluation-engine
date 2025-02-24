@@ -196,7 +196,7 @@ public class SettingsService {
     }
 
     public String getDefaultEvaluationImage(final String mode) {
-        return SupportedModes.AKKA.name().equals(mode) ? DEFAULT_AKKA_EVALUATION_IMAGE : DEFAULT_SPARK_EVALUATION_IMAGE;
+        return SupportedModes.AKKA.getMode().equals(mode) ? DEFAULT_AKKA_EVALUATION_IMAGE : DEFAULT_SPARK_EVALUATION_IMAGE;
     }
 
     private String createDefaultSampleSolution() {
