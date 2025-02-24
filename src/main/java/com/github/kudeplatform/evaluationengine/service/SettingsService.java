@@ -137,8 +137,15 @@ public class SettingsService {
         setSetting(KEY_EXAMPLE_SOLUTION, sampleSolution);
     }
 
-    public String getEvaluationImage() {
-        return getSetting(KEY_EVALUATION_IMAGE).orElse("registry.local/ddm-spark:0.0.14");
+    public String getEvaluationImage(final String mode) {
+        if (getSetting(KEY_EVALUATION_IMAGE).isPresent()) {
+            return getSetting(KEY_EVALUATION_IMAGE).get();
+        }
+        if (mode.equalsIgnoreCase(SupportedModes.AKKA.getMode())) {
+            return "registry.local/akka-tpch-jdk11:0.4.17";
+        }
+
+        return "registry.local/ddm-spark:0.0.14";
     }
 
     public void setEvaluationImage(final String evaluationImage) {
