@@ -30,4 +30,9 @@ public class EvaluationController {
         return "NOT_READY";
     }
 
+    @RequestMapping(value = "/anyEvaluationRunning", method = RequestMethod.GET)
+    public boolean isAnyEvaluationRunning() {
+        return !evaluationService.isNoJobRunning();
+    }
+
 }

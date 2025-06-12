@@ -21,9 +21,9 @@ import java.util.Optional;
 @Slf4j
 public class SettingsService {
 
-    public static final String DEFAULT_SPARK_EVALUATION_IMAGE = "registry.local/ddm-spark:0.0.14";
+    public static final String DEFAULT_SPARK_EVALUATION_IMAGE = "registry.local/ddm-spark:0.0.19";
 
-    public static final String DEFAULT_AKKA_EVALUATION_IMAGE = "registry.local/akka-tpch-jdk11:0.4.17";
+    public static final String DEFAULT_AKKA_EVALUATION_IMAGE = "registry.local/akka-tpch-jdk11:0.4.18";
 
     private static final String KEY_MODE = "mode";
 

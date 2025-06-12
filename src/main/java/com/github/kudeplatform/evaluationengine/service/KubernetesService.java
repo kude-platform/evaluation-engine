@@ -26,6 +26,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -76,6 +77,15 @@ public class KubernetesService implements OrchestrationService {
 
     public int getNumberOfNodes() throws ApiException {
         return coreV1Api.listNode().execute().getItems().size() - nodesReservedForSystem;
+    }
+
+    public List<String> getIpAdressesOfPods(final String podName) throws ApiException {
+        final CoreV1Api.APIlistNamespacedPodRequest podRequest = coreV1Api
+                .listNamespacedPod("evaluation");
+        final List<V1Pod> podList = podRequest.execute()
+                .getItems().stream().filter(v1Pod -> v1Pod.getMetadata().getName().startsWith(podName)).toList();
+
+        return podList.stream().map(V1Pod::getStatus).filter(Objects::nonNull).map(V1PodStatus::getPodIP).toList();
     }
 
     @Retryable(maxAttempts = 5, backoff = @Backoff(delay = 30000))
