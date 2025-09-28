@@ -120,6 +120,8 @@ public class EvaluationService implements ApplicationContextAware {
         this.notifyView(ingestedEvent.getEvaluationId());
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
+    // Some kind of thread synchronization is required here to prevent race conditions when multiple threads submit events concurrently
     @Transactional
     public synchronized void saveIngestedEvent(final IngestedEvent ingestedEvent) {
         for (final Event event : ingestedEvent.getEvents()) {
@@ -139,6 +141,8 @@ public class EvaluationService implements ApplicationContextAware {
         if (!byTaskIdAndCategory.isEmpty()) {
             final EvaluationEventEntity evaluationEventEntity = byTaskIdAndCategory.get(0);
             evaluationEventEntity.setTimestamp(ZonedDateTime.now());
+
+            // TODO: maybe rework database design to avoid concatenation of indices or move to the db level
             evaluationEventEntity.setIndex(concatIndexIfNotYetContained(ingestedEvent, byTaskIdAndCategory));
             evaluationEventRepository.save(evaluationEventEntity);
         } else {
@@ -544,7 +548,7 @@ public class EvaluationService implements ApplicationContextAware {
 
     }
 
-    @Transactional
+    @Transactional // TODO: @Transactional needed here?
     public void evaluationEventCallback(final EvaluationEvent result) {
         evaluationEventRepository.save(evaluationEventMapper.toEntity(result));
     }
@@ -560,6 +564,7 @@ public class EvaluationService implements ApplicationContextAware {
         this.notifyView(jobId);
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void updateLogsAvailable(final String taskId) {
         final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(taskId);
@@ -573,6 +578,7 @@ public class EvaluationService implements ApplicationContextAware {
     }
 
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void updateResults(final ResultsEvaluation resultsEvaluation, final String jobId) {
         final Optional<EvaluationResultEntity> evaluationResultEntityOptional = this.evaluationResultRepository.findById(jobId);
@@ -586,6 +592,7 @@ public class EvaluationService implements ApplicationContextAware {
         this.evaluationResultRepository.save(evaluationResultEntity);
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void updateTaskStatus(final String taskId, final EvaluationStatus evaluationStatus) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
@@ -593,6 +600,7 @@ public class EvaluationService implements ApplicationContextAware {
         evaluationResultRepository.save(evaluationResultEntity);
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void updateTaskStatusAndMessage(final String taskId, final EvaluationStatus evaluationStatus, String message) {
         final EvaluationResultEntity resultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
@@ -601,6 +609,7 @@ public class EvaluationService implements ApplicationContextAware {
         evaluationResultRepository.save(resultEntity);
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void setStartTimestampNow(final String taskId) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();
@@ -608,6 +617,7 @@ public class EvaluationService implements ApplicationContextAware {
         evaluationResultRepository.save(evaluationResultEntity);
     }
 
+    // TODO: Check if both @Transactional and synchronized are needed here - this combination is not recommended
     @Transactional
     public synchronized void setEndTimestampNow(final String taskId) {
         final EvaluationResultEntity evaluationResultEntity = evaluationResultRepository.findById(taskId).orElseThrow();

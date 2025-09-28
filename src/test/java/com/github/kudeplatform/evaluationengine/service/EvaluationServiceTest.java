@@ -27,7 +27,9 @@ class EvaluationServiceTest {
 
     @BeforeEach
     void setUp() {
-        evaluationService = new EvaluationService(null, null, null, null, null, null, null, settingsService, null, null, null, List.of());
+        evaluationService = new EvaluationService(null, null, null,
+                null, null, null, null, null,
+                settingsService, null, null, null, List.of());
     }
 
     @Test
