@@ -97,7 +97,7 @@ graph TB
 
 ## 📋 Prerequisites
 
-- **Java 19+**
+- **Java 21+**
 - **Kubernetes cluster** (for distributed execution)
 - **Helm 3.x** (for deployment)
 - **Git** (for repository management)
