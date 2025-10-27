@@ -41,6 +41,9 @@ spec:
         - name: data
           hostPath:
             path: /data/{{ .Values.datasetName }}
+        - name: home-pi
+          hostPath:
+            path: /home/pi
       nodeSelector:
         role: worker
       containers:
@@ -58,6 +61,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data/{{ .Values.datasetName }}
+            - name: home-pi
+              mountPath: /home/pi
+            - name: home-pi
+              mountPath: /root
           env:
             - name: "JOB_NAME"
               value: {{ .Values.name }}
