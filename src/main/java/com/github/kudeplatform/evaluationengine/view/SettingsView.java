@@ -35,12 +35,10 @@ import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Stream;
 
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_ERROR;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_FATAL;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_INFO;
-import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.LEVEL_WARNING;
+import static com.github.kudeplatform.evaluationengine.domain.EvaluationEvent.*;
 
 /**
  * @author timo.buechert
@@ -134,7 +132,11 @@ public class SettingsView extends VerticalLayout {
         this.mode.setLabel("Mode");
         this.mode.addValueChangeListener(event -> {
             if (Objects.nonNull(event.getValue())) {
-                this.evaluationImage.setValue(settingsService.getDefaultEvaluationImage(event.getValue()));
+                // On mode change, update image only if value was not set manually before
+                final Optional<String> savedEvaluationImage = settingsService.getEvaluationImage();
+                if (savedEvaluationImage.isEmpty()) {
+                    this.evaluationImage.setValue(settingsService.getDefaultEvaluationImage(event.getValue()));
+                }
             }
         });
 
@@ -340,7 +342,7 @@ public class SettingsView extends VerticalLayout {
                 .bind(this::getEvaluationImageValue, this::setEvaluationImageValue);
         binders.add(evaluationImageBinder);
 
-        this.evaluationImage.setValue(settingsService.getEvaluationImage());
+        this.evaluationImage.setValue(settingsService.getEvaluationImageOrDefault());
 
         final Binder<String> cpuRequestBinder = new Binder<>(String.class);
         cpuRequestBinder.forField(cpuRequest)
