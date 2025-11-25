@@ -106,7 +106,7 @@ public class KubernetesService implements OrchestrationService {
                 .set("gitUrl", gitEvaluationTask.repositoryUrl())
                 .set("replicaCount", settingsService.getReplicationFactor())
                 .set("timeoutInSeconds", settingsService.getTimeoutInSeconds())
-                .set("evaluationImage", settingsService.getEvaluationImage())
+                .set("evaluationImage", settingsService.getEvaluationImageOrDefault())
                 .set("cpuRequest", settingsService.getCpuRequest())
                 .set("cpuLimit", settingsService.getCpuLimit())
                 .set("memoryRequest", settingsService.getMemoryRequest())

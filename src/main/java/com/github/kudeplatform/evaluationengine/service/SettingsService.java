@@ -23,7 +23,7 @@ public class SettingsService {
 
     public static final String DEFAULT_SPARK_EVALUATION_IMAGE = "registry.local/ddm-spark:0.0.19";
 
-    public static final String DEFAULT_AKKA_EVALUATION_IMAGE = "registry.local/akka-tpch-jdk11:0.4.18";
+    public static final String DEFAULT_AKKA_EVALUATION_IMAGE = "registry.local/akka-tpch-jdk11:0.5.0";
 
     private static final String KEY_MODE = "mode";
 
@@ -141,8 +141,12 @@ public class SettingsService {
         setSetting(KEY_EXAMPLE_SOLUTION, sampleSolution);
     }
 
-    public String getEvaluationImage() {
+    public String getEvaluationImageOrDefault() {
         return getSetting(KEY_EVALUATION_IMAGE).orElse(getDefaultEvaluationImage(getMode().name()));
+    }
+
+    public Optional<String> getEvaluationImage() {
+        return getSetting(KEY_EVALUATION_IMAGE);
     }
 
     public void setEvaluationImage(final String evaluationImage) {
