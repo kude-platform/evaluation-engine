@@ -15,11 +15,12 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.streams.UploadHandler;
 import org.springframework.beans.factory.annotation.Qualifier;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 /**
@@ -97,22 +98,21 @@ public class DatasetView extends VerticalLayout implements NotifiableComponent {
     }
 
     private Upload createUploadComponent() {
-        final MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
-        final Upload upload = new Upload(buffer);
+        final UploadHandler inMemoryUploadHandler =
+                UploadHandler.inMemory((uploadMetadata, bytes) -> {
+                    try {
+                        fileSystemService.saveDataset(new ByteArrayInputStream(bytes), uploadMetadata.fileName());
+                    } catch (final Exception e) {
+                        showErrorNotification("Could not store the uploaded file. The error was: " + e.getMessage());
+                        return;
+                    }
+
+                    Notification.show("Dataset uploaded successfully.", 5000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+                    this.update();
+                });
+        
+        final Upload upload = new Upload(inMemoryUploadHandler);
         upload.setAcceptedFileTypes(".zip");
-        upload.addSucceededListener(event -> {
-
-            try {
-                fileSystemService.saveDataset(buffer.getInputStream(event.getFileName()), event.getFileName());
-            } catch (final Exception e) {
-                showErrorNotification("Could not store the uploaded file. The error was: " + e.getMessage());
-                return;
-            }
-
-            Notification.show("Dataset uploaded successfully.", 5000, Notification.Position.TOP_CENTER).addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-            this.update();
-        });
-
         upload.addFileRejectedListener(event -> showErrorNotification(event.getErrorMessage()));
         return upload;
     }
