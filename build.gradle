@@ -2,16 +2,16 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.4.1'
-    id 'io.spring.dependency-management' version '1.1.7'
-    id 'com.vaadin' version '24.5.5'
+    id 'org.springframework.boot' version "${springBootVersion}"
+    id 'io.spring.dependency-management' version "${springDependencyManagementVersion}"
+    id 'com.vaadin' version "${vaadinPluginVersion}"
 }
 
-group = 'com.example'
-version = '0.8.1-SNAPSHOT'
+group = "${group}"
+version = "${version}"
 
 java {
-    sourceCompatibility = "19"
+    sourceCompatibility = "${javaVersion}"
 }
 
 springBoot {
@@ -29,9 +29,6 @@ vaadin {
 
 repositories {
     mavenCentral()
-    maven {
-        url "https://maven.vaadin.com/vaadin-prereleases/"
-    }
 }
 
 dependencies {
@@ -39,16 +36,16 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.retry:spring-retry'
 
-    implementation 'com.vaadin:vaadin-spring-boot-starter:24.6.1'
-    implementation 'io.kubernetes:client-java:22.0.0'
+    implementation "com.vaadin:vaadin-spring-boot-starter:${vaadinVersion}"
+    implementation "io.kubernetes:client-java:${kubernetesClientVersion}"
 
-    implementation 'org.bouncycastle:bcpkix-jdk18on:1.78.1'
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+    implementation "org.bouncycastle:bcpkix-jdk18on:${bouncyCastleVersion}"
+    implementation "org.bouncycastle:bcprov-jdk18on:${bouncyCastleVersion}"
 
-    implementation 'com.google.code.gson:gson:2.11.0'
-    implementation 'org.mapstruct:mapstruct:1.6.0'
+    implementation "com.google.code.gson:gson:${gsonVersion}"
+    implementation "org.mapstruct:mapstruct:${mapStructVersion}"
 
-    implementation 'org.apache.commons:commons-csv:1.12.0'
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
 
 
     def targetPlatform
@@ -66,31 +63,33 @@ dependencies {
         }
     }
 
-    implementation 'com.marcnuri.helm-java:helm-java:0.0.15'
-    implementation "com.marcnuri.helm-java:${targetPlatform}:0.0.15"
+    implementation "com.marcnuri.helm-java:helm-java:${helmJavaVersion}"
+    implementation "com.marcnuri.helm-java:${targetPlatform}:${helmJavaVersion}"
 
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:7.1.0.202411261347-r'
-    implementation 'de.jplag:jplag:5.1.0'
-    implementation 'de.jplag:java:5.1.0'
-    implementation 'de.jplag:text:5.1.0'
+    implementation "org.eclipse.jgit:org.eclipse.jgit:${jgitVersion}"
+    implementation "de.jplag:jplag:${jplagVersion}"
+    implementation "de.jplag:java:${jplagVersion}"
+    implementation "de.jplag:text:${jplagVersion}"
 
 
     runtimeOnly 'com.h2database:h2'
 
-    compileOnly 'org.projectlombok:lombok:1.18.32'
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
 
-    annotationProcessor 'org.projectlombok:lombok:1.18.32'
-    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapStructVersion}"
 
-    testCompileOnly 'org.projectlombok:lombok:1.18.32'
-    testAnnotationProcessor 'org.projectlombok:lombok:1.18.32'
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation "com.github.mvysny.kaributesting:karibu-testing-v10-spring:${karibuTestingVersion}"
+    testImplementation 'org.awaitility:awaitility:4.2.0'
 }
 
 dependencyManagement {
     imports {
-        mavenBom "com.vaadin:vaadin-bom:24.5.4"
+        mavenBom "com.vaadin:vaadin-bom:${vaadinVersion}"
     }
 }
 
@@ -101,4 +100,3 @@ tasks.named('test') {
 bootJar {
     duplicatesStrategy(DuplicatesStrategy.EXCLUDE)
 }
-targetCompatibility = JavaVersion.VERSION_19
